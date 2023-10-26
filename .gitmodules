@@ -1,0 +1,10 @@
+[submodule "libs/SDL"]
+	path = libs/SDL
+	url = https://github.com/libsdl-org/SDL.git
+[submodule "libs/imgui"]
+	path = libs/imgui
+	url = https://github.com/ocornut/imgui
+	branch = docking
+[submodule "libs/tinyfd"]
+	path = libs/tinyfd
+	url = http://git.code.sf.net/p/tinyfiledialogs/code
