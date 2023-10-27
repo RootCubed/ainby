@@ -213,7 +213,7 @@ void AINBImGuiNode::DrawOutputPin(AINB::Param *param, ed::PinId id) {
     DrawPinIcon(id, true);
 }
 
-std::string MakeTitle(const AINB::Node &node, const AINB::NodeLink &nl, int idx) {
+std::string MakeTitle(const AINB::Node &node, const AINB::NodeLink &nl, int idx, int count) {
     switch (node.type) {
         case AINB::UserDefined:
         case AINB::Element_BoolSelector:
@@ -225,6 +225,9 @@ std::string MakeTitle(const AINB::Node &node, const AINB::NodeLink &nl, int idx)
             return "Seq " + std::to_string(idx);
         case AINB::Element_S32Selector:
         case AINB::Element_F32Selector:
+            if (idx == count - 1) {
+                return "Default";
+            }
             return "=" + AINB::AINBValueToString(nl.value);
         case AINB::Element_Fork:
             return "Fork";
@@ -233,13 +236,13 @@ std::string MakeTitle(const AINB::Node &node, const AINB::NodeLink &nl, int idx)
 }
 
 void AINBImGuiNode::DrawExtraPins() {
-    int currIdx = 0;
-    for (const FlowLink &flowLink : flowLinks) {
-        std::string title = MakeTitle(node, flowLink.nodeLink, currIdx);
+    for (int i = 0; i < flowLinks.size(); i++) {
+        const FlowLink &flowLink = flowLinks[i];
+        std::string title = MakeTitle(node, flowLink.nodeLink, i, flowLinks.size());
         PrepareTextAlignRight(title, iconSize.x + ImGui::GetStyle().ItemSpacing.x);
         ImGui::TextUnformatted(title.c_str());
         ImGui::SameLine();
-        DrawPinIcon(extraPins[currIdx++], true);
+        DrawPinIcon(extraPins[i], true);
         if (node.type == AINB::Element_Simultaneous || node.type == AINB::Element_Fork) {
             break; // Simultaneous and Fork only have one pin
         }
