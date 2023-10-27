@@ -22,6 +22,7 @@ private:
     std::vector<AINBImGuiNode> guiNodes;
     ed::NodeId rightClickedNode = 0;
     int selectedNodeIdx = -1;
+    std::string selectedCommand = "";
 
     void AutoLayout();
 

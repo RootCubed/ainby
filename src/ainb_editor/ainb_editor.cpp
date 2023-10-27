@@ -32,28 +32,34 @@ void AINBEditor::RegisterAINB(AINB::AINB &ainb) {
         ed::DestroyEditor(edContext);
     }
     edContext = ed::CreateEditor(&edConfig);
+    selectedNodeIdx = -1;
+    selectedCommand = "";
 }
 
 void AINBEditor::UnloadAINB() {
     guiNodes.clear();
     ainb = nullptr;
+    selectedNodeIdx = -1;
+    selectedCommand = "";
 }
 
 void AINBEditor::DrawInspector() {
     ImGui::Text("Name: %s", ainb->name.c_str());
     ImGui::Text("File Category: %s", ainb->fileCategory.c_str());
 
+    int newSelectedNodeIdx = -1;
     if (ImGui::TreeNode("Commands")) {
+        ImGui::BeginListBox("##Commands", ImVec2(FLT_MIN, 200));
         for (AINB::Command &cmd : ainb->commands) {
-            if (ImGui::TreeNode(cmd.name.c_str())) {
-                ImGui::Text("Left/right node: %d / %d", cmd.fileCommand.leftNodeIdx, cmd.fileCommand.rightNodeIdx);
-                ImGui::TreePop();
+            if (ImGui::Selectable(cmd.name.c_str(), selectedCommand == cmd.name)) {
+                selectedCommand = cmd.name;
+                newSelectedNodeIdx = cmd.fileCommand.leftNodeIdx;
             }
         }
+        ImGui::EndListBox();
         ImGui::TreePop();
     }
 
-    int newSelectedNodeIdx = -1;
     if (ImGui::TreeNode("Nodes")) {
         for (int i = 0; i < ainb->nodes.size(); i++) {
             std::stringstream title;
