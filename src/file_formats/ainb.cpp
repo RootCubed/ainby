@@ -248,6 +248,7 @@ void AINB::ImmediateParam::Read(AINB &ainb) {
             value = ainb.ReadString(ainb.ReadU32());
             break;
         case AINBVec3f:
+            ainb.ReadU32(); // Flags
             value = vec3f {
                 .x = ainb.ReadF32(),
                 .y = ainb.ReadF32(),
