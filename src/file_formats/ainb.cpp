@@ -164,7 +164,7 @@ void AINB::AINB::Read(std::istream &stream) {
             }
         }
         for (NodeLink &nl : n.nodeLinks) {
-            if (nl.type == Link_Type2) {
+            if (nl.type == LinkFlow || nl.type == LinkForkJoin) {
                 n.outNodes.push_back(&nodes[nl.idx]);
                 nodes[nl.idx].inNodes.push_back(&n);
             }
@@ -436,6 +436,7 @@ std::unordered_map<AINB::nodeType_e, std::string> nodeTypeNames = {
     {AINB::Element_Fork, "Fork" },
     {AINB::Element_Join, "Join" },
     {AINB::Element_Alert, "Alert" },
+    {AINB::Element_Expression, "Expression"},
     {AINB::Element_ModuleIF_Input_S32, "ModuleIF_Input_S32" },
     {AINB::Element_ModuleIF_Input_F32, "ModuleIF_Input_F32" },
     {AINB::Element_ModuleIF_Input_Vec3f, "ModuleIF_Input_Vec3f" },
@@ -464,7 +465,7 @@ void AINB::NodeLink::Read(AINB &ainb, nodeType_e parentNodeType) {
     idx = ainb.ReadU32();
     switch ((linkType_e) type) {
         case Link_Type0:
-        case Link_Type2:
+        case LinkFlow:
         case Link_Type4:
         case Link_Type5: {
             u32 pos = ainb.ReadU32();
@@ -478,6 +479,10 @@ void AINB::NodeLink::Read(AINB &ainb, nodeType_e parentNodeType) {
             }
             break;
         }
+        case LinkForkJoin:
+            // Fork/join stuff is not clear to me yet, placeholder
+            name = "Type 3 Link";
+            break;
         default:
             std::cout << "Unknown link type " << type << std::endl;
             break;

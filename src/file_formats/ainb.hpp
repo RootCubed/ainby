@@ -58,8 +58,8 @@ enum paramType_e {
 enum linkType_e {
     Link_Type0,
     Link_Type1,
-    Link_Type2,
-    Link_Type3,
+    LinkFlow,
+    LinkForkJoin,
     Link_Type4,
     Link_Type5,
     Link_Type6,

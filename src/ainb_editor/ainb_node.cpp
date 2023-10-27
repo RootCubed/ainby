@@ -50,22 +50,26 @@ void AINBImGuiNode::PreparePinIDs() {
 
     // Extra pins / Flow links
     for (const AINB::NodeLink &nl : node.nodeLinks) {
-        if (nl.type == AINB::Link_Type2) {
-            ed::PinId pinID = MakePinID();
-            extraPins.push_back(pinID);
-            switch (node.type) {
-                case AINB::Element_Simultaneous:
-                    flowLinks.push_back(FlowLink {MakeLinkID(), extraPins[0], nl.idx});
-                    break;
-                case AINB::Element_BoolSelector: {
-                    int idx = (nl.name == "True") ? 0 : 1;
-                    flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl.idx});
-                    break;
-                }
-                default:
-                    flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl.idx});
-                    break;
+        if (nl.type != AINB::LinkFlow) {
+            if (node.type == AINB::UserDefined || nl.type != AINB::LinkForkJoin) {
+                continue;
             }
+        }
+        ed::PinId pinID = MakePinID();
+        extraPins.push_back(pinID);
+        switch (node.type) {
+            case AINB::Element_Simultaneous:
+            case AINB::Element_Fork:
+                flowLinks.push_back(FlowLink {MakeLinkID(), extraPins[0], nl.idx});
+                break;
+            case AINB::Element_BoolSelector: {
+                int idx = (nl.name == "True") ? 0 : 1;
+                flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl.idx});
+                break;
+            }
+            default:
+                flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl.idx});
+                break;
         }
     }
     if (node.type == AINB::Element_Simultaneous) {
@@ -220,6 +224,8 @@ std::string MakeTitle(const AINB::Node &node, const AINB::NodeLink &nl, int idx)
         case AINB::Element_S32Selector:
         case AINB::Element_F32Selector:
             return "=" + AINB::AINBValueToString(nl.value);
+        case AINB::Element_Fork:
+            return "Fork";
     }
     return "<name unavailable>";
 }
@@ -227,16 +233,16 @@ std::string MakeTitle(const AINB::Node &node, const AINB::NodeLink &nl, int idx)
 void AINBImGuiNode::DrawExtraPins() {
     int currIdx = 0;
     for (const AINB::NodeLink &nl : node.nodeLinks) {
-        if (nl.type != AINB::Link_Type2) {
-            continue;
+        if (extraPins.size() <= currIdx) {
+            break;
         }
         std::string title = MakeTitle(node, nl, currIdx);
         PrepareTextAlignRight(title, iconSize.x + ImGui::GetStyle().ItemSpacing.x);
         ImGui::TextUnformatted(title.c_str());
         ImGui::SameLine();
         DrawPinIcon(extraPins[currIdx++], true);
-        if (node.type == AINB::Element_Simultaneous) {
-            break; // Element_Simultaneous only has one pin
+        if (node.type == AINB::Element_Simultaneous || node.type == AINB::Element_Fork) {
+            break; // Simultaneous and Fork only have one pin
         }
     }
 }
