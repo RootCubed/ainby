@@ -13,10 +13,8 @@
 #include "node_editor/imgui_node_editor.h"
 
 AINBEditor::AINBEditor() {
-    ed::Config config;
-    config.SettingsFile = nullptr;
-    config.NavigateButtonIndex = 2;
-    edContext = ed::CreateEditor(&config);
+    edConfig.SettingsFile = nullptr;
+    edConfig.NavigateButtonIndex = 2;
 }
 
 AINBEditor::~AINBEditor() {
@@ -29,6 +27,11 @@ void AINBEditor::RegisterAINB(AINB::AINB &ainb) {
     for (AINB::Node &node : ainb.nodes) {
         guiNodes.emplace_back(node);
     }
+
+    if (edContext != nullptr) {
+        ed::DestroyEditor(edContext);
+    }
+    edContext = ed::CreateEditor(&edConfig);
 }
 
 void AINBEditor::UnloadAINB() {

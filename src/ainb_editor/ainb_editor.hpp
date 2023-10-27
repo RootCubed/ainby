@@ -17,7 +17,8 @@ private:
     std::unordered_map<int, AINBImGuiNode::AuxInfo> newAuxInfos;
 
     // Node Editor
-    ed::EditorContext *edContext;
+    ed::Config edConfig;
+    ed::EditorContext *edContext = nullptr;
     std::vector<AINBImGuiNode> guiNodes;
     ed::NodeId rightClickedNode = 0;
     int selectedNodeIdx = -1;
