@@ -49,7 +49,7 @@ void AINBEditor::DrawInspector() {
 
     int newSelectedNodeIdx = -1;
     if (ImGui::TreeNode("Commands")) {
-        ImGui::BeginListBox("##Commands", ImVec2(FLT_MIN, 200));
+        if (ImGui::BeginListBox("##Commands", ImVec2(FLT_MIN, 200))) {
         for (AINB::Command &cmd : ainb->commands) {
             if (ImGui::Selectable(cmd.name.c_str(), selectedCommand == cmd.name)) {
                 selectedCommand = cmd.name;
@@ -57,6 +57,7 @@ void AINBEditor::DrawInspector() {
             }
         }
         ImGui::EndListBox();
+        }
         ImGui::TreePop();
     }
 
