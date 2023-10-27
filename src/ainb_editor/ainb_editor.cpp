@@ -1,9 +1,4 @@
 #include <imgui.h>
-#include "imgui_impl_sdl3.h"
-#include "imgui_impl_opengl3.h"
-#include "imgui_impl_opengl3_loader.h"
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_opengl.h>
 #include <tinyfiledialogs.h>
 
 #include <cstdlib>
@@ -236,17 +231,16 @@ void AINBEditor::DrawNodeEditor() {
         AutoLayout();
     }
 
-    std::vector<AINBImGuiNode::AuxInfo> auxInfos;
-    for (AINBImGuiNode &guiNode : guiNodes) {
-        auxInfos.push_back(guiNode.GetAuxInfo());
+    if (wantSavePositions) {
+        std::vector<AINBImGuiNode::AuxInfo> auxInfos;
+        for (AINBImGuiNode &guiNode : guiNodes) {
+            auxInfos.push_back(guiNode.GetAuxInfo());
+        }
+        SavePositionToFile(auxInfos);
     }
 
     ed::End();
     ed::SetCurrentEditor(nullptr);
-
-    if (wantSavePositions) {
-        SavePositionToFile(auxInfos);
-    }
 
     if (wantLoadPositions) {
         LoadPositionFromFile();

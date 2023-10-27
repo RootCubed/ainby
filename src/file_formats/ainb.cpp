@@ -127,8 +127,11 @@ void AINB::AINB::Read(std::istream &stream) {
     u32 embAinbCount = ReadU32();
     for (int i = 0; i < embAinbCount; i++) {
         embeddedAinbs.push_back(ReadString(ReadU32()));
-        ReadU32(); // category string offset
-        assert(ReadU32() == 1); // count
+        std::string category = ReadString(ReadU32());
+        u32 count = ReadU32();
+        if (count > 1) {
+            std::cout << "Embedded AINB " << embeddedAinbs.back() << " has count value of " << count << std::endl;
+        }
     }
 
     assert(ainbFile->tellg() == ainbHeader.entryStringsOffset);
