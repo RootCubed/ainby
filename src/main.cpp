@@ -70,7 +70,6 @@ int main(int argc, char **argv) {
 
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset; // Increase draw list size so that large graphs can render
     io.SetClipboardTextFn = ImGuiSetClipboardText;
     io.GetClipboardTextFn = ImGuiGetClipboardText;
 

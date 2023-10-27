@@ -14,6 +14,8 @@ target_include_directories(ainby
     PUBLIC ${TINYFILEDIALOGS_DIR}
 )
 
+add_definitions(-DIMGUI_USER_CONFIG="ainby_imgui_config.h")
+
 if(WIN32)
     set_target_properties(ainby PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 endif()

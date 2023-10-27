@@ -28,6 +28,8 @@ target_include_directories(IMGUI
     PUBLIC ${SDL3_DIR}/include
 )
 
+add_definitions(-DIMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/ainby_imgui_config.h")
+
 target_link_libraries(IMGUI PRIVATE SDL3::SDL3)
 
 # tinyfiledialogs
