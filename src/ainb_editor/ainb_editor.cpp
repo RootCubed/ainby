@@ -277,10 +277,16 @@ void AINBEditor::AutoLayout() {
         }
     };
 
-    if (ainb->commands.size() > 0) {
-        placeNode(ainb->commands[0].fileCommand.leftNodeIdx, {0, 0});
-    } else {
-        placeNode(0, {0, 0});
+    // First, try to place command root nodes
+    for (int i = 0; i < ainb->commands.size(); i++) {
+        placeNode(ainb->commands[i].fileCommand.leftNodeIdx, {i, 0});
+    }
+
+    // Place remaining orphan nodes
+    for (const AINB::Node &node : ainb->nodes) {
+        if (!idxToPos.contains(node.Idx())) {
+            placeNode(node.Idx(), {0, 0});
+        }
     }
 
     newAuxInfos.clear();
