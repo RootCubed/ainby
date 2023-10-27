@@ -50,13 +50,13 @@ void AINBEditor::DrawInspector() {
     int newSelectedNodeIdx = -1;
     if (ImGui::TreeNode("Commands")) {
         if (ImGui::BeginListBox("##Commands", ImVec2(FLT_MIN, 200))) {
-        for (AINB::Command &cmd : ainb->commands) {
-            if (ImGui::Selectable(cmd.name.c_str(), selectedCommand == cmd.name)) {
-                selectedCommand = cmd.name;
-                newSelectedNodeIdx = cmd.fileCommand.leftNodeIdx;
+            for (AINB::Command &cmd : ainb->commands) {
+                if (ImGui::Selectable(cmd.name.c_str(), selectedCommand == cmd.name)) {
+                    selectedCommand = cmd.name;
+                    newSelectedNodeIdx = cmd.fileCommand.leftNodeIdx;
+                }
             }
-        }
-        ImGui::EndListBox();
+            ImGui::EndListBox();
         }
         ImGui::TreePop();
     }
@@ -96,9 +96,23 @@ void AINBEditor::DrawInspector() {
                         }
                         case AINB::Param_Input: {
                             AINB::InputParam *ip = static_cast<AINB::InputParam *>(param);
-                            ImGui::Text(" Input %s (Child ID %d, param %d) = %s",
-                                param->name.c_str(), ip->inputChildIdx, ip->sourceOutputParamIdx,
-                                AINB::AINBValueToString(ip->defaultValue).c_str());
+
+                            switch (ip->inputNodeIdxs.size()) {
+                                case 0:
+                                    ImGui::Text(" Input %s = %s", param->name.c_str(), AINB::AINBValueToString(ip->defaultValue).c_str());
+                                    break;
+                                case 1:
+                                    ImGui::Text(" Input %s: N%d.%d (default = %s)", param->name.c_str(),
+                                        ip->inputNodeIdxs[0], ip->inputParamIdxs[0],
+                                        AINB::AINBValueToString(ip->defaultValue).c_str());
+                                    break;
+                                default:
+                                    ImGui::Text(" Input %s: Multi-param:", param->name.c_str());
+                                    for (int i = 0; i < ip->inputNodeIdxs.size(); i++) {
+                                        ImGui::Text("  N%d.%d", ip->inputNodeIdxs[i], ip->inputParamIdxs[i]);
+                                    }
+                                    break;
+                            }
                             break;
                         }
                         case AINB::Param_Output:
@@ -306,7 +320,7 @@ void AINBEditor::AutoLayout() {
         for (const AINB::Param *param : ainb->nodes[nodeIdx].params) {
             if (param->paramType == AINB::Param_Input) {
                 const AINB::InputParam *inputParam = static_cast<const AINB::InputParam *>(param);
-                if (inputParam->inputChildIdx == -1) {
+                if (inputParam->inputNodeIdxs.size() == 0) {
                     auxInfo.extraNodePos[param->name] = ImVec2(auxInfo.pos.x - 250, auxInfo.pos.y + extraPinIdx * 70);
                     extraPinIdx++;
                 }

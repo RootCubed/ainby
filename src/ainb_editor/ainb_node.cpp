@@ -29,7 +29,7 @@ void AINBImGuiNode::PreparePinIDs() {
 
         if (param->paramType == AINB::Param_Input) {
             AINB::InputParam *inputParam = static_cast<AINB::InputParam *>(param);
-            if (inputParam->inputChildIdx == -1) {
+            if (inputParam->inputNodeIdxs.size() == 0) {
                 nonNodeInputs.push_back(NonNodeInput {
                     .genNodeID = MakeNodeID(),
                     .genNodePinID = MakePinID(),
@@ -38,12 +38,14 @@ void AINBImGuiNode::PreparePinIDs() {
                     .inputParam = inputParam
                 });
             } else {
-                paramLinks.push_back(ParamLink {
-                    .linkID = MakeLinkID(),
-                    .inputNodeIdx = inputParam->inputChildIdx,
-                    .inputParameterIdx = inputParam->sourceOutputParamIdx,
-                    .inputPinID = pinID
-                });
+                for (int j = 0; j < inputParam->inputNodeIdxs.size(); j++) {
+                    paramLinks.push_back(ParamLink {
+                        .linkID = MakeLinkID(),
+                        .inputNodeIdx = inputParam->inputNodeIdxs[j],
+                        .inputParameterIdx = inputParam->inputParamIdxs[j],
+                        .inputPinID = pinID
+                    });
+                }
             }
         }
     }
@@ -60,15 +62,15 @@ void AINBImGuiNode::PreparePinIDs() {
         switch (node.type) {
             case AINB::Element_Simultaneous:
             case AINB::Element_Fork:
-                flowLinks.push_back(FlowLink {MakeLinkID(), extraPins[0], nl.idx});
+                flowLinks.push_back(FlowLink {MakeLinkID(), extraPins[0], nl});
                 break;
             case AINB::Element_BoolSelector: {
                 int idx = (nl.name == "True") ? 0 : 1;
-                flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl.idx});
+                flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl});
                 break;
             }
             default:
-                flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl.idx});
+                flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl});
                 break;
         }
     }
@@ -232,11 +234,8 @@ std::string MakeTitle(const AINB::Node &node, const AINB::NodeLink &nl, int idx)
 
 void AINBImGuiNode::DrawExtraPins() {
     int currIdx = 0;
-    for (const AINB::NodeLink &nl : node.nodeLinks) {
-        if (extraPins.size() <= currIdx) {
-            break;
-        }
-        std::string title = MakeTitle(node, nl, currIdx);
+    for (const FlowLink &flowLink : flowLinks) {
+        std::string title = MakeTitle(node, flowLink.nodeLink, currIdx);
         PrepareTextAlignRight(title, iconSize.x + ImGui::GetStyle().ItemSpacing.x);
         ImGui::TextUnformatted(title.c_str());
         ImGui::SameLine();
@@ -339,7 +338,7 @@ void AINBImGuiNode::DrawLinks(std::vector<AINBImGuiNode> &nodes) {
 
     // Draw flow links
     for (const FlowLink &flowLink : flowLinks) {
-        ed::Link(flowLink.linkID, flowLink.flowFromPinID, nodes[flowLink.flowToNodeIdx].flowPinID, ImColor(255, 255, 255));
+        ed::Link(flowLink.linkID, flowLink.flowFromPinID, nodes[flowLink.nodeLink.idx].flowPinID, ImColor(255, 255, 255));
     }
 
     // Draw node inputs

@@ -21,6 +21,7 @@ void AINB::AINB::Clear() {
     nodes.clear();
     gparams.Clear();
     embeddedAinbs.clear();
+    multiParams.clear();
 }
 
 void AINB::AINB::Read(std::istream &stream) {
@@ -68,9 +69,18 @@ void AINB::AINB::Read(std::istream &stream) {
             immParams[i].push_back(p);
         }
     }
+    assert(ainbFile->tellg() == ainbHeader.ioParamsOffset);
+
+    // Multi-parameters (Read before I/O parameters so that they can resolve multi-params)
+    ainbFile->seekg(ainbHeader.multiParamArrOffset);
+    while (ainbFile->tellg() < ainbHeader.residentUpdateArrOffset) {
+        MultiParam p;
+        p.Read(*this);
+        multiParams.push_back(p);
+    }
 
     // I/O Parameters
-    assert(ainbFile->tellg() == ainbHeader.ioParamsOffset);
+    ainbFile->seekg(ainbHeader.ioParamsOffset);
     u32 ioStopOffsets[AINBTypeCount * 2];
     for (int i = 0; i < AINBTypeCount * 2; i++) {
         if (i == 0) {
@@ -81,27 +91,19 @@ void AINB::AINB::Read(std::istream &stream) {
     }
     ioStopOffsets[AINBTypeCount * 2 - 1] = ainbHeader.multiParamArrOffset;
 
-    for (int i = 0; i < AINBTypeCount * 2; i += 2) {
-        while (ainbFile->tellg() < ioStopOffsets[i]) {
-            InputParam p((ainbType) (i / 2));
+    for (int i = 0; i < AINBTypeCount; i++) {
+        while (ainbFile->tellg() < ioStopOffsets[i * 2]) {
+            InputParam p((ainbType) i);
             p.Read(*this);
-            inputParams[i / 2].push_back(p);
+            inputParams[i].push_back(p);
         }
-        while (ainbFile->tellg() < ioStopOffsets[i + 1]) {
-            OutputParam p((ainbType) (i / 2));
+        while (ainbFile->tellg() < ioStopOffsets[i * 2 + 1]) {
+            OutputParam p((ainbType) i);
             p.Read(*this);
-            outputParams[i / 2].push_back(p);
+            outputParams[i].push_back(p);
         }
     }
-
-    // Multi-parameters
     assert(ainbFile->tellg() == ainbHeader.multiParamArrOffset);
-    while (ainbFile->tellg() < ainbHeader.residentUpdateArrOffset) {
-        u16 nodeIndex = ReadU16();
-        u16 ioSourceNodeIndex = ReadU16();
-        u32 flags = ReadU32();
-        std::cout << "Multi-param: node " << nodeIndex << ", source node " << ioSourceNodeIndex << ", flags " << flags << std::endl;
-    }
 
     // Precondition nodes
     ainbFile->seekg(ainbHeader.preconditionNodeArrOffset);
@@ -157,9 +159,9 @@ void AINB::AINB::Read(std::istream &stream) {
         for (Param *p : n.params) {
             if (p->paramType == Param_Input) {
                 InputParam *ip = static_cast<InputParam *>(p);
-                if (ip->inputChildIdx > -1) {
-                    n.inNodes.push_back(&nodes[ip->inputChildIdx]);
-                    nodes[ip->inputChildIdx].outNodes.push_back(&n);
+                for (int inputIdx : ip->inputNodeIdxs) {
+                    n.inNodes.push_back(&nodes[inputIdx]);
+                    nodes[inputIdx].outNodes.push_back(&n);
                 }
             }
         }
@@ -264,41 +266,60 @@ void AINB::ImmediateParam::Read(AINB &ainb) {
 
 void AINB::InputParam::Read(AINB &ainb) {
     name = ainb.ReadString(ainb.ReadU32());
-    if (dataType != AINBUserDefined) {
-        inputChildIdx = (s16) ainb.ReadU16();
-        sourceOutputParamIdx = (s16) ainb.ReadU16();
-        flags = ainb.ReadU32();
-        union {
-            u32 i;
-            float f;
-        } tmp;
-        switch (dataType) {
-            case AINBInt:
-                defaultValue = ainb.ReadU32();
-                break;
-            case AINBBool:
-                defaultValue = (bool) ainb.ReadU32();
-                break;
-            case AINBFloat:
-                defaultValue = ainb.ReadF32();
-                break;
-            case AINBString:
-                defaultValue = ainb.ReadString(ainb.ReadU32());
-                break;
-            case AINBVec3f:
-                defaultValue = vec3f {
-                    .x = ainb.ReadF32(),
-                    .y = ainb.ReadF32(),
-                    .z = ainb.ReadF32()
-                };
-                break;
-        }
+    if (dataType == AINBUserDefined) {
+        className = ainb.ReadString(ainb.ReadU32());
+    }
+
+    s16 inputNodeIdx = (s16) ainb.ReadU16();
+    if (inputNodeIdx <= -100) {
+        ReadMultiParam(ainb, inputNodeIdx);
     } else {
-        defaultValue = ainb.ReadString(ainb.ReadU32());
-        inputChildIdx = (s16) ainb.ReadU16();
-        sourceOutputParamIdx = (s16) ainb.ReadU16();
+        s16 inputParamIdx = (s16) ainb.ReadU16();
+        if (inputNodeIdx != -1) {
+            inputNodeIdxs.push_back(inputNodeIdx);
+            inputParamIdxs.push_back(inputParamIdx);
+        }
         flags = ainb.ReadU32();
-        ainb.ReadU32(); // Unknown
+    }
+
+    ReadDefaultValue(ainb);
+}
+
+void AINB::InputParam::ReadDefaultValue(AINB &ainb) {
+    switch (dataType) {
+        case AINBInt:
+            defaultValue = ainb.ReadU32();
+            break;
+        case AINBBool:
+            defaultValue = (bool) ainb.ReadU32();
+            break;
+        case AINBFloat:
+            defaultValue = ainb.ReadF32();
+            break;
+        case AINBString:
+            defaultValue = ainb.ReadString(ainb.ReadU32());
+            break;
+        case AINBVec3f:
+            defaultValue = vec3f {
+                .x = ainb.ReadF32(),
+                .y = ainb.ReadF32(),
+                .z = ainb.ReadF32()
+            };
+            break;
+        case AINBUserDefined:
+            ainb.ReadU32(); // Unknown
+            break;
+    }
+}
+
+void AINB::InputParam::ReadMultiParam(AINB &ainb, int multiParamBase) {
+    u16 multiParamCount = ainb.ReadU16();
+    u32 flags = ainb.ReadU32();
+    int startOffset = -multiParamBase - 100;
+    for (int i = 0; i < multiParamCount; i++) {
+        MultiParam &mp = ainb.multiParams[startOffset + i];
+        inputNodeIdxs.push_back(mp.multiParam.nodeIdx);
+        inputParamIdxs.push_back(mp.multiParam.paramIdx);
     }
 }
 
@@ -551,6 +572,10 @@ std::string AINB::Gparams::Gparam::TypeString() const {
             return "user-defined";
     }
     return "unknown";
+}
+
+void AINB::MultiParam::Read(AINB &ainb) {
+    ainb.ainbFile->read((char *) &multiParam, sizeof(AINBFileMultiParam));
 }
 
 std::ostream &operator<<(std::ostream &os, const vec3f &vec) {

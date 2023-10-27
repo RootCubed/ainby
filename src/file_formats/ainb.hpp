@@ -141,6 +141,12 @@ struct AINBFileCommand {
     u16 rightNodeIdx;
 };
 
+struct AINBFileMultiParam {
+    u16 nodeIdx;
+    u16 paramIdx;
+    u32 flags;
+};
+
 class AINB;
 
 using ainbValue = std::variant<u32, bool, f32, std::string, vec3f>;
@@ -175,15 +181,20 @@ public:
 };
 
 class InputParam : public Param {
+private:
+    void ReadDefaultValue(AINB &ainb);
+    void ReadMultiParam(AINB &ainb, int multiParamBase);
 public:
     InputParam(ainbType type) : Param(Param_Input), dataType(type) {}
     void Read(AINB &ainb);
     std::string TypeString() const;
     ainbType dataType;
 
-    int inputChildIdx;
-    int sourceOutputParamIdx;
+    std::vector<int> inputNodeIdxs;
+    std::vector<int> inputParamIdxs;
     u32 flags;
+
+    std::string className; // Only in UserDefined
 
     ainbValue defaultValue;
 };
@@ -258,6 +269,13 @@ public:
     std::vector<Gparam> gparams;
 };
 
+class MultiParam {
+public:
+    void Read(AINB &ainb);
+
+    AINBFileMultiParam multiParam;
+};
+
 class AINB {
 private:
     std::istream *ainbFile;
@@ -266,6 +284,7 @@ private:
     std::vector<ImmediateParam> immParams[AINBTypeCount];
     std::vector<InputParam> inputParams[AINBTypeCount];
     std::vector<OutputParam> outputParams[AINBTypeCount];
+    std::vector<MultiParam> multiParams;
     std::vector<u16> preconditions;
 
     std::string ReadString(u32 offset);
@@ -293,6 +312,7 @@ public:
     friend class NodeLink;
     friend class Gparams;
     friend class ParamMeta;
+    friend class MultiParam;
 };
 
 }

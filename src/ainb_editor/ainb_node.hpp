@@ -24,7 +24,7 @@ public:
     struct FlowLink {
         ed::LinkId linkID;
         ed::PinId flowFromPinID;
-        u32 flowToNodeIdx;
+        AINB::NodeLink nodeLink;
     };
     struct ParamLink {
         ed::LinkId linkID;
