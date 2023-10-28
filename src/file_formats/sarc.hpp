@@ -9,7 +9,7 @@
 
 #include "types.h"
 
-class SARCFile {
+class SARC {
 public:
     void Read(std::istream &sarcFile);
     void Write(std::ostream &sarcFile) const;

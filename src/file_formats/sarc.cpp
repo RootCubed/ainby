@@ -7,11 +7,11 @@
 #define ALIGN4(x) (((x) + 3) & ~3)
 #define ALIGN8(x) (((x) + 7) & ~7)
 
-void SARCFile::Clear() {
+void SARC::Clear() {
     files.clear();
 }
 
-void SARCFile::Read(std::istream &sarcFile) {
+void SARC::Read(std::istream &sarcFile) {
     Clear();
     SARCHeader sarcHeader;
     sarcFile.read((char *) &sarcHeader, sizeof(SARCHeader));
@@ -73,7 +73,7 @@ void SARCFile::Read(std::istream &sarcFile) {
     }
 }
 
-void SARCFile::Write(std::ostream &sarcFile) const {
+void SARC::Write(std::ostream &sarcFile) const {
     u32 sfntSize = 0;
     for (const auto &[path, _] : files) {
         sfntSize += ALIGN4(path.length() + 1);
@@ -139,7 +139,7 @@ void SARCFile::Write(std::ostream &sarcFile) const {
     assert(sarcFile.tellp() == dataBegin + dataPos);
 }
 
-const u8 *SARCFile::GetFileByPath(const std::string &path, u32 &size) const {
+const u8 *SARC::GetFileByPath(const std::string &path, u32 &size) const {
     if (files.find(path) == files.end()) {
         size = -1;
         return nullptr;
@@ -149,7 +149,7 @@ const u8 *SARCFile::GetFileByPath(const std::string &path, u32 &size) const {
     return file.data.get();
 }
 
-const std::vector<std::string> SARCFile::GetFileList() const {
+const std::vector<std::string> SARC::GetFileList() const {
     std::vector<std::string> fileList;
     for (const auto &pair : files) {
         fileList.push_back(pair.first);
@@ -157,7 +157,7 @@ const std::vector<std::string> SARCFile::GetFileList() const {
     return fileList;
 }
 
-void SARCFile::SetFile(const std::string &path, const u8 *data, u32 size) {
+void SARC::SetFile(const std::string &path, const u8 *data, u32 size) {
     files[path] = SFATFile {
         size,
         std::make_unique<u8[]>(size)
@@ -165,11 +165,11 @@ void SARCFile::SetFile(const std::string &path, const u8 *data, u32 size) {
     memcpy(files[path].data.get(), data, size);
 }
 
-void SARCFile::RemoveFile(const std::string &path) {
+void SARC::RemoveFile(const std::string &path) {
     files.erase(path);
 }
 
-u32 SARCFile::PathHash(const std::string &path) {
+u32 SARC::PathHash(const std::string &path) {
     u32 hash = 0;
     for (int i = 0; i < path.length(); i++) {
         hash = hash * 0x65 + path[i];

@@ -9,7 +9,7 @@ class AINBY {
 private:
     AINBEditor editor;
 
-    SARCFile currentSarc;
+    SARC currentSarc;
     bool sarcLoaded = false;
     AINB::AINB currentAinb;
     bool ainbLoaded = false;
