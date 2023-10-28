@@ -14,8 +14,8 @@ public:
     void Read(std::istream &sarcFile);
     void Clear();
 
-    const u8 *GetFileByPath(const std::string &path, u32 &size);
-    const std::vector<std::string> GetFileList() const { return filePaths; }
+    const u8 *GetFileByPath(const std::string &path, u32 &size) const;
+    const std::vector<std::string> GetFileList() const;
 
 private:
     struct SARCHeader {
@@ -47,10 +47,9 @@ private:
 
     static u32 PathHash(std::string &path);
 
-    std::istream *sarcFile;
-    u32 fileSize, dataBegin;
-
-    std::vector<std::string> filePaths;
-    std::unordered_map<std::string, SFATNode> fileNodes;
-    std::unordered_map<std::string, std::unique_ptr<u8[]>> files;
+    struct SFATFile {
+        u32 size;
+        std::unique_ptr<u8[]> data;
+    };
+    std::unordered_map<std::string, SFATFile> files;
 };

@@ -5,10 +5,6 @@
 #include <sstream>
 
 void SARCFile::Clear() {
-    fileSize = 0;
-    dataBegin = 0;
-    filePaths.clear();
-    fileNodes.clear();
     files.clear();
 }
 
@@ -24,8 +20,7 @@ void SARCFile::Read(std::istream &sarcFile) {
     assert(sarcHeader.bom == 0xFEFF);
     assert(sarcHeader.versionNum == 0x0100);
 
-    fileSize = sarcHeader.fileSize;
-    dataBegin = sarcHeader.dataBegin;
+    u32 dataBegin = sarcHeader.dataBegin;
 
     SFATHeader sfatHeader;
     sarcFile.read((char *) &sfatHeader, sizeof(SFATHeader));
@@ -51,6 +46,7 @@ void SARCFile::Read(std::istream &sarcFile) {
     }
     assert(sfntHeader.headerLen == 0x8);
 
+    std::vector<std::string> filePaths;
     std::unordered_map<u32, int> filePathIndices;
     size_t stringStart = sarcFile.tellg();
     while (sarcFile.tellg() < sarcHeader.dataBegin) {
@@ -80,19 +76,32 @@ void SARCFile::Read(std::istream &sarcFile) {
 
         u32 size = node.nodeFileDataEnd - node.nodeFileDataBegin;
 
-        fileNodes[filePath] = node;
-        files[filePath] = std::make_unique<u8[]>(size);
+        files[filePath] = SFATFile {
+            size,
+            std::make_unique<u8[]>(size)
+        };
 
         sarcFile.seekg(node.nodeFileDataBegin + dataBegin);
-        sarcFile.read((char *) files[filePath].get(), size);
+        sarcFile.read((char *) files[filePath].data.get(), size);
     }
 }
 
-const u8 *SARCFile::GetFileByPath(const std::string &path, u32 &size) {
-    const SFATNode &node = fileNodes.at(path);
-    size = node.nodeFileDataEnd - node.nodeFileDataBegin;
+const u8 *SARCFile::GetFileByPath(const std::string &path, u32 &size) const {
+    if (files.find(path) == files.end()) {
+        size = -1;
+        return nullptr;
+    }
+    const SFATFile &file = files.at(path);
+    size = file.size;
+    return file.data.get();
+}
 
-    return files.at(path).get();
+const std::vector<std::string> SARCFile::GetFileList() const {
+    std::vector<std::string> fileList;
+    for (const auto &pair : files) {
+        fileList.push_back(pair.first);
+    }
+    return fileList;
 }
 
 u32 SARCFile::PathHash(std::string &path) {
