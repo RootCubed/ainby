@@ -6,7 +6,7 @@
 #include <sstream>
 #include <unordered_map>
 
-void AINB::AINB::Clear() {
+void AINB::Clear() {
     ainbFile = nullptr;
     ainbHeader = {};
     for (int i = 0; i < AINBTypeCount; i++) {
@@ -24,7 +24,7 @@ void AINB::AINB::Clear() {
     multiParams.clear();
 }
 
-void AINB::AINB::Read(std::istream &stream) {
+void AINB::Read(std::istream &stream) {
     Clear();
     ainbFile = &stream;
 

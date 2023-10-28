@@ -21,7 +21,7 @@ AINBEditor::~AINBEditor() {
     ed::DestroyEditor(edContext);
 }
 
-void AINBEditor::RegisterAINB(AINB::AINB &ainb) {
+void AINBEditor::RegisterAINB(AINB &ainb) {
     this->ainb = &ainb;
     guiNodes.clear();
     for (AINB::Node &node : ainb.nodes) {

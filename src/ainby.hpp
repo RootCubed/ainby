@@ -11,7 +11,7 @@ private:
 
     SARC currentSarc;
     bool sarcLoaded = false;
-    AINB::AINB currentAinb;
+    AINB currentAinb;
     bool ainbLoaded = false;
 
     bool shouldOpenErrorPopup = false;

@@ -10,7 +10,7 @@ namespace ed = ax::NodeEditor;
 
 class AINBEditor {
 private:
-    AINB::AINB *ainb;
+    AINB *ainb;
 
     // Node positioning information; add an entry to this map
     // to change the position of a node.
@@ -30,7 +30,7 @@ public:
     AINBEditor();
     ~AINBEditor();
 
-    void RegisterAINB(AINB::AINB &ainb);
+    void RegisterAINB(AINB &ainb);
     void UnloadAINB();
 
     void SavePositionToFile(const std::vector<AINBImGuiNode::AuxInfo> &auxInfos) const;
