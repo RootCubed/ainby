@@ -86,6 +86,6 @@ private:
 
     void PreparePinIDs();
     void CalculateFrameWidth();
-    static ImColor GetNodeHeaderColor(AINB::nodeType_e type);
+    static ImColor GetNodeHeaderColor(AINB::NodeType type);
     void PrepareTextAlignRight(std::string str, int extraMargin = 0);
 };

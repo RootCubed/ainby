@@ -21,13 +21,13 @@ void AINBImGuiNode::PreparePinIDs() {
         ed::PinId pinID = MakePinID();
         idxToID[i] = pinID;
         nameToPinID[param->name] = pinID;
-        if (param->paramType == AINB::Param_Output) {
+        if (param->paramType == AINB::ParamType::Output) {
             outputPins.push_back(i);
         } else {
             inputPins.push_back(i);
         }
 
-        if (param->paramType == AINB::Param_Input) {
+        if (param->paramType == AINB::ParamType::Input) {
             AINB::InputParam *inputParam = static_cast<AINB::InputParam *>(param);
             if (inputParam->inputNodeIdxs.size() == 0) {
                 nonNodeInputs.push_back(NonNodeInput {
@@ -52,8 +52,8 @@ void AINBImGuiNode::PreparePinIDs() {
 
     // Extra pins / Flow links
     for (const AINB::NodeLink &nl : node.nodeLinks) {
-        if (nl.type != AINB::LinkFlow) {
-            if (node.type == AINB::UserDefined || nl.type != AINB::LinkForkJoin) {
+        if (nl.type != AINB::LinkType::Flow) {
+            if (node.type == AINB::UserDefined || nl.type != AINB::LinkType::ForkJoin) {
                 continue;
             }
         }
@@ -87,16 +87,16 @@ void AINBImGuiNode::CalculateFrameWidth() {
         if (i < inputPins.size()) {
             size += ImGui::CalcTextSize(node.params[inputPins[i]]->name.c_str()).x;
             size += itemSpacingX + iconSize.x;
-            if (node.params[inputPins[i]]->paramType == AINB::Param_Imm) {
+            if (node.params[inputPins[i]]->paramType == AINB::ParamType::Immediate) {
                 AINB::InputParam *ip = static_cast<AINB::InputParam *>(node.params[inputPins[i]]);
                 size += itemSpacingX + ImGui::GetStyle().FramePadding.x * 2;
                 switch (ip->dataType) {
-                    case AINB::AINBInt:
-                    case AINB::AINBString:
-                    case AINB::AINBFloat:
+                    case AINB::ValueType::Int:
+                    case AINB::ValueType::String:
+                    case AINB::ValueType::Float:
                         size += minImmTextboxWidth;
                         break;
-                    case AINB::AINBBool:
+                    case AINB::ValueType::Bool:
                         size += ImGui::GetFrameHeight();
                         break;
                 }
@@ -112,7 +112,7 @@ void AINBImGuiNode::CalculateFrameWidth() {
     }
 }
 
-ImColor AINBImGuiNode::GetNodeHeaderColor(AINB::nodeType_e type) {
+ImColor AINBImGuiNode::GetNodeHeaderColor(AINB::NodeType type) {
     switch (type) {
         case AINB::Element_S32Selector:
         case AINB::Element_F32Selector:
@@ -168,11 +168,11 @@ void AINBImGuiNode::DrawInputPin(AINB::Param *param, ed::PinId id) {
     DrawPinIcon(id, false);
     ImGui::SameLine();
     DrawPinTextCommon(param, false);
-    if (param->paramType == AINB::Param_Imm) {
+    if (param->paramType == AINB::ParamType::Immediate) {
         AINB::ImmediateParam *immParam = static_cast<AINB::ImmediateParam *>(param);
         ImGui::SameLine();
         switch (immParam->dataType) {
-            case AINB::AINBInt: {
+            case AINB::ValueType::Int: {
                 int currentCursorPosX = ImGui::GetCursorPosX();
                 int boxEnd = HeaderMax.x - 8;
                 ImGui::PushItemWidth(minImmTextboxWidth);
@@ -180,7 +180,7 @@ void AINBImGuiNode::DrawInputPin(AINB::Param *param, ed::PinId id) {
                 ImGui::PopItemWidth();
                 break;
             }
-            case AINB::AINBFloat: {
+            case AINB::ValueType::Float: {
                 int currentCursorPosX = ImGui::GetCursorPosX();
                 int boxEnd = HeaderMax.x - 8;
                 ImGui::PushItemWidth(minImmTextboxWidth);
@@ -188,10 +188,10 @@ void AINBImGuiNode::DrawInputPin(AINB::Param *param, ed::PinId id) {
                 ImGui::PopItemWidth();
                 break;
             }
-            case AINB::AINBBool:
+            case AINB::ValueType::Bool:
                 ImGui::Checkbox(("##" + param->name).c_str(), &std::get<bool>(immParam->value));
                 break;
-            case AINB::AINBString: {
+            case AINB::ValueType::String: {
                 static char strBuf[256];
                 strcpy(strBuf, std::get<std::string>(immParam->value).c_str());
                 ImGui::PushItemWidth(minImmTextboxWidth);

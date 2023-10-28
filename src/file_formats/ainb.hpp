@@ -32,47 +32,47 @@ public:
         }
     };
 
-    enum ainbType {
-        AINBInt,
-        AINBBool,
-        AINBFloat,
-        AINBString,
-        AINBVec3f,
-        AINBUserDefined,
-        AINBTypeCount
+    enum class ValueType {
+        Int,
+        Bool,
+        Float,
+        String,
+        Vec3f,
+        UserDefined,
+        _Count
+    };
+    enum class GlobalParamValueType {
+        String,
+        Int,
+        Float,
+        Bool,
+        Vec3f,
+        UserDefined
+    };
+    static const u32 ValueTypeCount = static_cast<u32>(ValueType::_Count);
+
+    enum class ParamType {
+        Immediate,
+        Input,
+        Output
     };
 
-    enum ainbGlobalType {
-        AINBGString,
-        AINBGInt,
-        AINBGFloat,
-        AINBGBool,
-        AINBGVec3f,
-        AINBGUserDefined,
-        AINBGTypeCount
+    enum class LinkType {
+        Type0,
+        Type1,
+        Flow,
+        ForkJoin,
+        Type4,
+        Type5,
+        Type6,
+        Type7,
+        Type8,
+        Type9,
+        _Count
     };
+    static const u32 LinkTypeCount = static_cast<u32>(LinkType::_Count);
 
-    enum paramType_e {
-        Param_Imm,
-        Param_Input,
-        Param_Output
-    };
-
-    enum linkType_e {
-        Link_Type0,
-        Link_Type1,
-        LinkFlow,
-        LinkForkJoin,
-        Link_Type4,
-        Link_Type5,
-        Link_Type6,
-        Link_Type7,
-        Link_Type8,
-        Link_Type9,
-        Link_Count
-    };
-
-    enum nodeType_e {
+    enum NodeType : u16 {
         UserDefined                    = 0,
         Element_S32Selector            = 1,
         Element_Sequential             = 2,
@@ -102,8 +102,191 @@ public:
         Element_SplitTiming            = 500
     };
 
-    // Note: For structs directly corresponding to the file's binary data,
-    // underscore-prefixed names are string table offsets
+    class Param {
+        virtual void Read(AINB &ainb) = 0;
+    protected:
+        Param(ParamType paramType, ValueType dataType) :
+            paramType(paramType), dataType(dataType) {}
+        virtual ~Param() {}
+    public:
+        ParamType paramType;
+        ValueType dataType;
+        std::string name = "";
+        std::string className = ""; // Only for NodeType::UserDefined
+
+        u32 flags = 0;
+
+        friend class AINB;
+    };
+
+    class ImmediateParam : public Param {
+        void Read(AINB &ainb);
+    public:
+        ImmediateParam(ValueType type) : Param(ParamType::Immediate, type) {}
+        ainbValue value;
+
+        friend class AINB;
+    };
+
+    class InputParam : public Param {
+    private:
+        void Read(AINB &ainb);
+        void ReadMultiParam(AINB &ainb, int multiParamBase);
+    public:
+        InputParam(ValueType type) : Param(ParamType::Input, type) {}
+
+        std::vector<int> inputNodeIdxs;
+        std::vector<int> inputParamIdxs;
+        u32 flags;
+
+        ainbValue defaultValue;
+
+        friend class AINB;
+    };
+
+    class OutputParam : public Param {
+        void Read(AINB &ainb);
+    public:
+        OutputParam(ValueType type) : Param(ParamType::Output, type) {}
+
+        friend class AINB;
+    };
+
+    class NodeLink {
+        void Read(AINB &ainb, NodeType parentNodeType);
+    public:
+        NodeLink(LinkType type) : type(type) {}
+
+        LinkType type;
+        u32 idx;
+        std::string name;
+        u32 globalParamIdx;
+        ainbValue value;
+
+        friend class AINB;
+    };
+
+    class Node {
+    private:
+        void Read(AINB &ainb);
+        void ReadParams(AINB &ainb);
+
+        struct FileDataLayout {
+            NodeType type;
+            u16 idx;
+            u16 attachmentCount;
+            u8 flags;
+            u32 _name;
+            u32 nameHash;
+            u32 unk1;
+            u32 paramOffset;
+            u16 exbFunctionCount;
+            u16 exbIOFieldSize;
+            u16 multiParamCount;
+            u32 baseAttachmentParamIdx;
+            u16 basePreconditionNode;
+            u16 preconditionNodeCount;
+            u16 x58Offset;
+            u16 unk2;
+            GUID guid;
+        };
+
+        FileDataLayout data;
+
+        struct ParamMetaLayout {
+            struct {
+                u32 offset;
+                u32 count;
+            } immediate[ValueTypeCount];
+            struct {
+                u32 inputOffset;
+                u32 inputCount;
+                u32 outputOffset;
+                u32 outputCount;
+            } inputOutput[ValueTypeCount];
+            struct {
+                u8 count;
+                u8 offset;
+            } link[LinkTypeCount];
+        };
+
+        std::vector<const Node *> inNodes;
+        std::vector<const Node *> outNodes;
+
+    public:
+        std::string TypeName() const;
+
+        u16 Idx() const { return data.idx; }
+        const std::vector<const Node *> &GetInNodes() const { return inNodes; }
+        const std::vector<const Node *> &GetOutNodes() const { return outNodes; }
+
+        std::string name; // Empty string if type != UserDefined
+        NodeType type;
+        u32 flags;
+
+        std::vector<Param *> params;
+        std::vector<NodeLink> nodeLinks;
+        std::vector<u32> preconditionNodes;
+
+        friend class AINB;
+    };
+
+    class Command {
+        void Read(AINB &ainb);
+
+        struct FileDataLayout {
+            u32 _name;
+            GUID guid;
+            u16 leftNodeIdx;
+            u16 rightNodeIdx;
+        };
+        FileDataLayout data;
+    public:
+        std::string name;
+        Node *rootNode;
+
+        friend class AINB;
+    };
+
+    class Gparams {
+        void Read(AINB &ainb);
+    public:
+        struct Gparam {
+            std::string name;
+            GlobalParamValueType dataType;
+            ainbValue defaultValue;
+            std::string notes;
+
+            std::string TypeString() const;
+        };
+        void Clear() { gparams.clear(); }
+
+        std::vector<Gparam> gparams;
+
+        friend class AINB;
+    };
+
+    class MultiParam {
+        void Read(AINB &ainb);
+    public:
+        struct FileDataLayout {
+            u16 nodeIdx;
+            u16 paramIdx;
+            u32 flags;
+        };
+        FileDataLayout multiParam;
+
+        friend class AINB;
+    };
+
+private:
+    // Temporary variables used during reading
+    std::istream *ainbFile;
+    std::vector<ImmediateParam> immParams[ValueTypeCount];
+    std::vector<InputParam> inputParams[ValueTypeCount];
+    std::vector<OutputParam> outputParams[ValueTypeCount];
+    std::vector<MultiParam> multiParams;
+    std::vector<u16> preconditions;
 
     struct AINBFileHeader {
         char magic[4];
@@ -136,172 +319,21 @@ public:
         u32 unk4;
         u32 x70SectionOffset;
     };
-
-    struct AINBFileCommand {
-        u32 _name;
-        GUID guid;
-        u16 leftNodeIdx;
-        u16 rightNodeIdx;
-    };
-
-    struct AINBFileMultiParam {
-        u16 nodeIdx;
-        u16 paramIdx;
-        u32 flags;
-    };
-
-    class Command {
-        void Read(AINB &ainb);
-    public:
-        AINBFileCommand fileCommand;
-        std::string name;
-
-        friend class AINB;
-    };
-
-    class Param {
-        virtual void Read(AINB &ainb) = 0;
-    protected:
-        Param(paramType_e type) : paramType(type), name("") {}
-        virtual ~Param() {}
-    public:
-        paramType_e paramType;
-        std::string name;
-
-        friend class AINB;
-    };
-
-    class ImmediateParam : public Param {
-        void Read(AINB &ainb);
-    public:
-        ImmediateParam(ainbType type) : Param(Param_Imm), dataType(type) {}
-        ainbType dataType;
-        ainbValue value;
-
-        friend class AINB;
-    };
-
-    class InputParam : public Param {
-    private:
-        void Read(AINB &ainb);
-        void ReadDefaultValue(AINB &ainb);
-        void ReadMultiParam(AINB &ainb, int multiParamBase);
-    public:
-        InputParam(ainbType type) : Param(Param_Input), dataType(type) {}
-        std::string TypeString() const;
-        ainbType dataType;
-
-        std::vector<int> inputNodeIdxs;
-        std::vector<int> inputParamIdxs;
-        u32 flags;
-
-        std::string className; // Only in UserDefined
-
-        ainbValue defaultValue;
-
-        friend class AINB;
-    };
-
-    class OutputParam : public Param {
-        void Read(AINB &ainb);
-    public:
-        OutputParam(ainbType type) : Param(Param_Output), dataType(type) {}
-        ainbType dataType;
-
-        std::string userDefClassName;
-
-        friend class AINB;
-    };
-
-    class NodeLink {
-        void Read(AINB &ainb, nodeType_e parentNodeType);
-    public:
-        NodeLink(linkType_e type) : type(type) {}
-
-        linkType_e type;
-        u32 idx;
-        std::string name;
-        u32 globalParamIdx;
-        ainbValue value;
-
-        friend class AINB;
-    };
-
-    class Node {
-    private:
-        u16 idx;
-        std::vector<const Node *> inNodes;
-        std::vector<const Node *> outNodes;
-
-        void Read(AINB &ainb);
-        void ReadParams(AINB &ainb);
-    public:
-        std::string TypeName() const;
-
-        u16 Idx() const { return idx; }
-        const std::vector<const Node *> &GetInNodes() const { return inNodes; }
-        const std::vector<const Node *> &GetOutNodes() const { return outNodes; }
-
-        std::string name; // Empty string if type != UserDefined
-        nodeType_e type;
-        u16 attachmentCount;
-        u8 flags;
-        u32 nameHash;
-        GUID guid;
-        u32 paramOffset;
-        u16 multiParamCount;
-
-        u16 exbFieldCount;
-        u16 exbValueSize;
-
-        std::vector<Param *> params;
-        std::vector<NodeLink> nodeLinks;
-        std::vector<u32> preconditionNodes;
-
-        friend class AINB;
-    };
-
-    class Gparams {
-        void Read(AINB &ainb);
-    public:
-        struct Gparam {
-            std::string name;
-            ainbGlobalType dataType;
-            ainbValue defaultValue;
-
-            std::string TypeString() const;
-        };
-        void Clear() { gparams.clear(); }
-
-        std::vector<Gparam> gparams;
-
-        friend class AINB;
-    };
-
-    class MultiParam {
-        void Read(AINB &ainb);
-    public:
-
-        AINBFileMultiParam multiParam;
-
-        friend class AINB;
-    };
-
-private:
-    std::istream *ainbFile;
-
     AINBFileHeader ainbHeader;
-    std::vector<ImmediateParam> immParams[AINBTypeCount];
-    std::vector<InputParam> inputParams[AINBTypeCount];
-    std::vector<OutputParam> outputParams[AINBTypeCount];
-    std::vector<MultiParam> multiParams;
-    std::vector<u16> preconditions;
 
     std::string ReadString(u32 offset);
-    float ReadF32(u32 offset = -1);
-    u32 ReadU32(u32 offset = -1);
-    u16 ReadU16(u32 offset = -1);
-    u8 ReadU8(u32 offset = -1);
+
+    template <typename T>
+    T Read(std::streampos offset = -1);
+
+    // Just the two most common ones, use Read<T> for others
+    u32 ReadU32(std::streampos offset = -1) { return Read<u32>(offset); }
+    f32 ReadF32(std::streampos offset = -1) { return Read<f32>(offset); }
+
+    template <typename T>
+    void Read(T *dataHolder, std::streampos offset = -1);
+
+    ainbValue ReadAinbValue(ValueType dataType, std::streampos offset = -1);
 public:
     void Read(std::istream &stream);
     void Clear();
