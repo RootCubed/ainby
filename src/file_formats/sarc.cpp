@@ -4,6 +4,9 @@
 #include <cstring>
 #include <sstream>
 
+#define ALIGN4(x) (((x) + 3) & ~3)
+#define ALIGN8(x) (((x) + 7) & ~7)
+
 void SARCFile::Clear() {
     files.clear();
 }
@@ -46,28 +49,12 @@ void SARCFile::Read(std::istream &sarcFile) {
     }
     assert(sfntHeader.headerLen == 0x8);
 
-    std::vector<std::string> filePaths;
-    std::unordered_map<u32, int> filePathIndices;
     size_t stringStart = sarcFile.tellg();
-    while (sarcFile.tellg() < sarcHeader.dataBegin) {
-        std::string filePath;
-        std::getline(sarcFile, filePath, '\0');
-        if (filePath.length() == 0) {
-            break;
-        }
-        filePathIndices[PathHash(filePath)] = filePaths.size();
-        filePaths.push_back(filePath);
-
-        // Align to 4 bytes
-        u32 currPos = sarcFile.tellg();
-        u32 nextPos = (currPos + 3) & ~3;
-        sarcFile.seekg(nextPos);
-    }
 
     for (const SFATNode &node : sfatNodes) {
         std::string filePath;
         if ((node.fileAttributes >> 24) == 0) {
-            filePath = filePaths[filePathIndices[node.fileNameHash]];
+            throw std::runtime_error("File name by hash not supported");
         } else {
             u32 offset = (node.fileAttributes & 0xFFFFFF) * 4;
             sarcFile.seekg(stringStart + offset);
@@ -84,6 +71,72 @@ void SARCFile::Read(std::istream &sarcFile) {
         sarcFile.seekg(node.nodeFileDataBegin + dataBegin);
         sarcFile.read((char *) files[filePath].data.get(), size);
     }
+}
+
+void SARCFile::Write(std::ostream &sarcFile) const {
+    u32 sfntSize = 0;
+    for (const auto &[path, _] : files) {
+        sfntSize += ALIGN4(path.length() + 1);
+    }
+
+    u32 dataBegin = ALIGN8(
+        sizeof(SARCHeader)
+        + sizeof(SFATHeader)
+        + files.size() * sizeof(SFATNode)
+        + sizeof(SFNTHeader)
+        + sfntSize);
+    u32 dataPos = 0;
+
+    std::vector<SFATNode> sfatNodes;
+    u32 strOffs = 0;
+    for (const auto &[path, file] : files) {
+        dataPos = ALIGN8(dataPos);
+        sfatNodes.push_back(SFATNode {
+            .fileNameHash = PathHash(path),
+            .fileAttributes = 0x01000000 | (strOffs / 4),
+            .nodeFileDataBegin = dataPos,
+            .nodeFileDataEnd = dataPos + file.size
+        });
+        strOffs += ALIGN4(path.length() + 1);
+        dataPos += file.size;
+    }
+    dataPos = ALIGN4(dataPos);
+
+    SARCHeader sarcHeader = {
+        .magic = {'S','A','R','C'},
+        .headerLen = 0x14,
+        .bom = 0xFEFF,
+        .fileSize = dataBegin + dataPos,
+        .dataBegin = dataBegin,
+        .versionNum = 0x0100
+    };
+    SFATHeader sfatHeader = {
+        .magic = {'S','F','A','T'},
+        .headerLen = sizeof(SFATHeader),
+        .nodeCount = (u16) files.size(),
+        .hashKey = 0x65
+    };
+    SFNTHeader sfntHeader = {
+        .magic = {'S','F','N','T'},
+        .headerLen = sizeof(SFNTHeader)
+    };
+
+    sarcFile.write((char *) &sarcHeader, sizeof(SARCHeader));
+    sarcFile.write((char *) &sfatHeader, sizeof(SFATHeader));
+    sarcFile.write((char *) sfatNodes.data(), sfatNodes.size() * sizeof(SFATNode));
+    sarcFile.write((char *) &sfntHeader, sizeof(SFNTHeader));
+    for (const auto &[path, _] : files) {
+        sarcFile.seekp(ALIGN4((u32) sarcFile.tellp()));
+        sarcFile.write(path.c_str(), path.length() + 1);
+    }
+    for (const auto &[path, file] : files) {
+        const SFATFile &file = files.at(path);
+        sarcFile.seekp(ALIGN8((u32) sarcFile.tellp()));
+        sarcFile.write((const char *) file.data.get(), file.size);
+    }
+    sarcFile.seekp(ALIGN4((u32) sarcFile.tellp()));
+
+    assert(sarcFile.tellp() == dataBegin + dataPos);
 }
 
 const u8 *SARCFile::GetFileByPath(const std::string &path, u32 &size) const {
@@ -104,7 +157,19 @@ const std::vector<std::string> SARCFile::GetFileList() const {
     return fileList;
 }
 
-u32 SARCFile::PathHash(std::string &path) {
+void SARCFile::SetFile(const std::string &path, const u8 *data, u32 size) {
+    files[path] = SFATFile {
+        size,
+        std::make_unique<u8[]>(size)
+    };
+    memcpy(files[path].data.get(), data, size);
+}
+
+void SARCFile::RemoveFile(const std::string &path) {
+    files.erase(path);
+}
+
+u32 SARCFile::PathHash(const std::string &path) {
     u32 hash = 0;
     for (int i = 0; i < path.length(); i++) {
         hash = hash * 0x65 + path[i];

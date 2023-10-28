@@ -52,6 +52,7 @@ void AINBY::Draw() {
 
 void AINBY::DrawMainWindow() {
     int openFileType = -1; // 0 = pack, 1 = ainb (TODO: should probably make an enum for this)
+    bool savePack = false;
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open .pack")) {
@@ -59,6 +60,9 @@ void AINBY::DrawMainWindow() {
             }
             if (ImGui::MenuItem("Open .ainb")) {
                 openFileType = 1;
+            }
+            if (ImGui::MenuItem("Save .pack")) {
+                savePack = true;
             }
             if (ImGui::MenuItem("Exit")) {
                 shouldClose = true;
@@ -81,6 +85,19 @@ void AINBY::DrawMainWindow() {
                     editor.RegisterAINB(currentAinb);
                     ainbLoaded = true;
                 }
+            } catch (std::exception &e) {
+                fileOpenErrorMessage = e.what();
+                shouldOpenErrorPopup = true;
+            }
+        }
+    }
+
+    if (savePack) {
+        const char *path = tinyfd_saveFileDialog("Save file", "", 0, nullptr, nullptr);
+        if (path != nullptr) {
+            try {
+                std::ofstream file(path, std::ios::binary);
+                currentSarc.Write(file);
             } catch (std::exception &e) {
                 fileOpenErrorMessage = e.what();
                 shouldOpenErrorPopup = true;
