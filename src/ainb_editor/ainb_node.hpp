@@ -19,7 +19,7 @@ public:
         ed::PinId genNodePinID;
         ed::PinId outputPinID;
         ed::LinkId linkID;
-        AINB::InputParam *inputParam;
+        AINB::InputParam &inputParam;
     };
     struct FlowLink {
         ed::LinkId linkID;
@@ -39,7 +39,7 @@ public:
         std::unordered_map<std::string, ImVec2> extraNodePos;
     };
 
-    AINBImGuiNode(const AINB::Node &node);
+    AINBImGuiNode(AINB::Node &node);
 
     void DrawLinks(std::vector<AINBImGuiNode> &nodes);
     void Draw();
@@ -52,7 +52,7 @@ public:
     void LoadAuxInfo(const AuxInfo &auxInfo);
 
 private:
-    const AINB::Node &node;
+    AINB::Node &node;
 
     int frameWidth;
     ImVec2 HeaderMin;
@@ -79,9 +79,9 @@ private:
     ed::LinkId static MakeLinkID() { return ++nextID; }
 
     void DrawPinIcon(ed::PinId id, bool isOutput);
-    void DrawPinTextCommon(AINB::Param *param, bool isOutput);
-    void DrawInputPin(AINB::Param *param, ed::PinId id);
-    void DrawOutputPin(AINB::Param *param, ed::PinId id);
+    void DrawPinTextCommon(const AINB::Param &param);
+    void DrawInputPin(AINB::Param &param, ed::PinId id);
+    void DrawOutputPin(const AINB::Param &param, ed::PinId id);
     void DrawExtraPins();
 
     void PreparePinIDs();

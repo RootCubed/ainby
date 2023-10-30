@@ -187,7 +187,7 @@ std::string AINBY::DrawFileTree(const std::vector<std::string> &fileList) {
             path.push_back(token);
         }
 
-        for (int i = 0; i < path.size(); i++) {
+        for (size_t i = 0; i < path.size(); i++) {
             // Navigate to the correct folder
             if (currPath.size() > i) {
                 if (currPath[i] == path[i]) {

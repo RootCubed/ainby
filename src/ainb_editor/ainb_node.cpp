@@ -7,7 +7,7 @@
 
 u32 AINBImGuiNode::nextID = 0;
 
-AINBImGuiNode::AINBImGuiNode(const AINB::Node &node) : node(node) {
+AINBImGuiNode::AINBImGuiNode(AINB::Node &node) : node(node) {
     PreparePinIDs();
     CalculateFrameWidth();
 }
@@ -16,20 +16,22 @@ void AINBImGuiNode::PreparePinIDs() {
     nodeID = MakeNodeID();
     flowPinID = MakePinID();
 
-    for (int i = 0; i < node.params.size(); i++) {
-        AINB::Param *param = node.params[i];
+    const auto params = node.GetParams();
+
+    for (size_t i = 0; i < params.size(); i++) {
+        AINB::Param &param = params[i];
         ed::PinId pinID = MakePinID();
         idxToID[i] = pinID;
-        nameToPinID[param->name] = pinID;
-        if (param->paramType == AINB::ParamType::Output) {
+        nameToPinID[param.name] = pinID;
+        if (param.paramType == AINB::ParamType::Output) {
             outputPins.push_back(i);
         } else {
             inputPins.push_back(i);
         }
 
-        if (param->paramType == AINB::ParamType::Input) {
-            AINB::InputParam *inputParam = static_cast<AINB::InputParam *>(param);
-            if (inputParam->inputNodeIdxs.size() == 0) {
+        if (param.paramType == AINB::ParamType::Input) {
+            AINB::InputParam &inputParam = static_cast<AINB::InputParam &>(param);
+            if (inputParam.inputNodeIdxs.size() == 0) {
                 nonNodeInputs.push_back(NonNodeInput {
                     .genNodeID = MakeNodeID(),
                     .genNodePinID = MakePinID(),
@@ -38,11 +40,11 @@ void AINBImGuiNode::PreparePinIDs() {
                     .inputParam = inputParam
                 });
             } else {
-                for (int j = 0; j < inputParam->inputNodeIdxs.size(); j++) {
+                for (size_t j = 0; j < inputParam.inputNodeIdxs.size(); j++) {
                     paramLinks.push_back(ParamLink {
                         .linkID = MakeLinkID(),
-                        .inputNodeIdx = inputParam->inputNodeIdxs[j],
-                        .inputParameterIdx = inputParam->inputParamIdxs[j],
+                        .inputNodeIdx = inputParam.inputNodeIdxs[j],
+                        .inputParameterIdx = inputParam.inputParamIdxs[j],
                         .inputPinID = pinID
                     });
                 }
@@ -65,7 +67,6 @@ void AINBImGuiNode::PreparePinIDs() {
                 flowLinks.push_back(FlowLink {MakeLinkID(), extraPins[0], nl});
                 break;
             case AINB::Element_BoolSelector: {
-                int idx = (nl.name == "True") ? 0 : 1;
                 flowLinks.push_back(FlowLink {MakeLinkID(), pinID, nl});
                 break;
             }
@@ -82,15 +83,16 @@ void AINBImGuiNode::PreparePinIDs() {
 void AINBImGuiNode::CalculateFrameWidth() {
     int itemSpacingX = ImGui::GetStyle().ItemSpacing.x;
     frameWidth = 8 * 2 + ImGui::CalcTextSize(node.TypeName().c_str()).x + iconSize.x + itemSpacingX;
-    for (int i = 0; i < inputPins.size() || i < outputPins.size(); i++) {
+    for (size_t i = 0; i < inputPins.size() || i < outputPins.size(); i++) {
         int size = 8 * 2; // Frame Padding
         if (i < inputPins.size()) {
-            size += ImGui::CalcTextSize(node.params[inputPins[i]]->name.c_str()).x;
+            AINB::Param &param = node.GetParams()[inputPins[i]];
+            size += ImGui::CalcTextSize(param.name.c_str()).x;
             size += itemSpacingX + iconSize.x;
-            if (node.params[inputPins[i]]->paramType == AINB::ParamType::Immediate) {
-                AINB::InputParam *ip = static_cast<AINB::InputParam *>(node.params[inputPins[i]]);
+            if (param.paramType == AINB::ParamType::Immediate) {
+                AINB::InputParam &ip = static_cast<AINB::InputParam &>(param);
                 size += itemSpacingX + ImGui::GetStyle().FramePadding.x * 2;
-                switch (ip->dataType) {
+                switch (ip.dataType) {
                     case AINB::ValueType::Int:
                     case AINB::ValueType::String:
                     case AINB::ValueType::Float:
@@ -99,13 +101,19 @@ void AINBImGuiNode::CalculateFrameWidth() {
                     case AINB::ValueType::Bool:
                         size += ImGui::GetFrameHeight();
                         break;
+                    case AINB::ValueType::Vec3f:
+                        size += minImmTextboxWidth * 3 + itemSpacingX * 2;
+                        break;
+                    default:
+                        break;
                 }
             } else {
                 size += itemSpacingX;
             }
         }
         if (i < outputPins.size()) {
-            size += ImGui::CalcTextSize(node.params[outputPins[i]]->name.c_str()).x;
+            AINB::Param &param = node.outputParams[i];
+            size += ImGui::CalcTextSize(param.name.c_str()).x;
             size += itemSpacingX * 2 + iconSize.x;
         }
         frameWidth = std::max(frameWidth, size);
@@ -145,7 +153,6 @@ ImColor AINBImGuiNode::GetNodeHeaderColor(AINB::NodeType type) {
 }
 
 void AINBImGuiNode::PrepareTextAlignRight(std::string str, int extraMargin) {
-    int currentCursorPosX = ImGui::GetCursorPosX();
     int cursorPosX = HeaderMax.x;
     cursorPosX -= 8 + ImGui::CalcTextSize(str.c_str()).x + extraMargin;
     ImGui::SetCursorPosX(cursorPosX);
@@ -160,55 +167,51 @@ void AINBImGuiNode::DrawPinIcon(ed::PinId id, bool isOutput) {
     ed::PopStyleVar(2);
 }
 
-void AINBImGuiNode::DrawPinTextCommon(AINB::Param *param, bool isOutput) {
-    ImGui::TextUnformatted(param->name.c_str());
+void AINBImGuiNode::DrawPinTextCommon(const AINB::Param &param) {
+    ImGui::TextUnformatted(param.name.c_str());
 }
 
-void AINBImGuiNode::DrawInputPin(AINB::Param *param, ed::PinId id) {
+void AINBImGuiNode::DrawInputPin(AINB::Param &param, ed::PinId id) {
     DrawPinIcon(id, false);
     ImGui::SameLine();
-    DrawPinTextCommon(param, false);
-    if (param->paramType == AINB::ParamType::Immediate) {
-        AINB::ImmediateParam *immParam = static_cast<AINB::ImmediateParam *>(param);
+    DrawPinTextCommon(param);
+    if (param.paramType == AINB::ParamType::Immediate) {
+        AINB::ImmediateParam &immParam = static_cast<AINB::ImmediateParam &>(param);
         ImGui::SameLine();
-        switch (immParam->dataType) {
+        switch (immParam.dataType) {
             case AINB::ValueType::Int: {
-                int currentCursorPosX = ImGui::GetCursorPosX();
-                int boxEnd = HeaderMax.x - 8;
                 ImGui::PushItemWidth(minImmTextboxWidth);
-                ImGui::InputScalar(("##" + param->name).c_str(), ImGuiDataType_U32, &std::get<u32>(immParam->value));
+                ImGui::InputScalar(("##" + param.name).c_str(), ImGuiDataType_U32, &std::get<u32>(immParam.value));
                 ImGui::PopItemWidth();
                 break;
             }
             case AINB::ValueType::Float: {
-                int currentCursorPosX = ImGui::GetCursorPosX();
-                int boxEnd = HeaderMax.x - 8;
                 ImGui::PushItemWidth(minImmTextboxWidth);
-                ImGui::InputScalar(("##" + param->name).c_str(), ImGuiDataType_Float, &std::get<float>(immParam->value));
+                ImGui::InputScalar(("##" + param.name).c_str(), ImGuiDataType_Float, &std::get<float>(immParam.value));
                 ImGui::PopItemWidth();
                 break;
             }
             case AINB::ValueType::Bool:
-                ImGui::Checkbox(("##" + param->name).c_str(), &std::get<bool>(immParam->value));
+                ImGui::Checkbox(("##" + param.name).c_str(), &std::get<bool>(immParam.value));
                 break;
             case AINB::ValueType::String: {
                 static char strBuf[256];
-                strcpy(strBuf, std::get<std::string>(immParam->value).c_str());
+                strncpy(strBuf, std::get<std::string>(immParam.value).c_str(), 256);
                 ImGui::PushItemWidth(minImmTextboxWidth);
-                ImGui::InputText(("##" + param->name).c_str(), strBuf, 256);
+                ImGui::InputText(("##" + param.name).c_str(), strBuf, 256);
                 ImGui::PopItemWidth();
                 break;
             }
             default:
-                ImGui::Text("%s", AINB::AINBValueToString(immParam->value).c_str());
+                ImGui::Text("%s", AINB::AINBValueToString(immParam.value).c_str());
                 break;
         }
     }
 }
 
-void AINBImGuiNode::DrawOutputPin(AINB::Param *param, ed::PinId id) {
-    PrepareTextAlignRight(param->name, iconSize.x + ImGui::GetStyle().ItemSpacing.x);
-    DrawPinTextCommon(param, true);
+void AINBImGuiNode::DrawOutputPin(const AINB::Param &param, ed::PinId id) {
+    PrepareTextAlignRight(param.name, iconSize.x + ImGui::GetStyle().ItemSpacing.x);
+    DrawPinTextCommon(param);
     ImGui::SameLine();
     DrawPinIcon(id, true);
 }
@@ -231,12 +234,13 @@ std::string MakeTitle(const AINB::Node &node, const AINB::NodeLink &nl, int idx,
             return "=" + AINB::AINBValueToString(nl.value);
         case AINB::Element_Fork:
             return "Fork";
+        default:
+            return "<name unavailable>";
     }
-    return "<name unavailable>";
 }
 
 void AINBImGuiNode::DrawExtraPins() {
-    for (int i = 0; i < flowLinks.size(); i++) {
+    for (size_t i = 0; i < flowLinks.size(); i++) {
         const FlowLink &flowLink = flowLinks[i];
         std::string title = MakeTitle(node, flowLink.nodeLink, i, flowLinks.size());
         PrepareTextAlignRight(title, iconSize.x + ImGui::GetStyle().ItemSpacing.x);
@@ -268,15 +272,15 @@ void AINBImGuiNode::Draw() {
         ImGui::Dummy(ImVec2(0, 8));
 
         // Main content frame
-        for (int i = 0; i < inputPins.size() || i < outputPins.size(); i++) {
+        for (size_t i = 0; i < inputPins.size() || i < outputPins.size(); i++) {
             if (i < inputPins.size()) {
-                DrawInputPin(node.params[inputPins[i]], idxToID[inputPins[i]]);
+                DrawInputPin(node.GetParams()[inputPins[i]], idxToID[inputPins[i]]);
             } else {
                 ImGui::Dummy(ImVec2(0, 0));
             }
             ImGui::SameLine();
             if (i < outputPins.size()) {
-                DrawOutputPin(node.params[outputPins[i]], idxToID[outputPins[i]]);
+                DrawOutputPin(node.outputParams[i], idxToID[outputPins[i]]);
             } else {
                 ImGui::Dummy(ImVec2(0, 0));
             }
@@ -312,11 +316,11 @@ void AINBImGuiNode::Draw() {
 void AINBImGuiNode::DrawLinks(std::vector<AINBImGuiNode> &nodes) {
     // Draw inputs not connected to a node
     for (const NonNodeInput &input : nonNodeInputs) {
-        const AINB::InputParam *inputParam = input.inputParam;
+        const AINB::InputParam &inputParam = input.inputParam;
         ed::PushStyleColor(ed::StyleColor_NodeBg, ImColor(32, 117, 21, 192));
         ed::BeginNode(input.genNodeID);
-            std::string titleStr = inputParam->name;
-            std::string defaultValueStr = "(" + AINB::AINBValueToString(inputParam->defaultValue) + ")";
+            std::string titleStr = inputParam.name;
+            std::string defaultValueStr = "(" + AINB::AINBValueToString(inputParam.defaultValue) + ")";
 
             ImGui::TextUnformatted(titleStr.c_str());
             int titleSizeX = ImGui::CalcTextSize(titleStr.c_str()).x;
@@ -362,7 +366,7 @@ AINBImGuiNode::AuxInfo AINBImGuiNode::GetAuxInfo() const {
     auxInfo.nodeIdx = node.Idx();
     auxInfo.pos = ed::GetNodePosition(nodeID);
     for (const NonNodeInput &input : nonNodeInputs) {
-        auxInfo.extraNodePos[input.inputParam->name] = ed::GetNodePosition(input.genNodeID);
+        auxInfo.extraNodePos[input.inputParam.name] = ed::GetNodePosition(input.genNodeID);
     }
     return auxInfo;
 }
@@ -370,8 +374,8 @@ AINBImGuiNode::AuxInfo AINBImGuiNode::GetAuxInfo() const {
 void AINBImGuiNode::LoadAuxInfo(const AuxInfo &auxInfo) {
     ed::SetNodePosition(nodeID, auxInfo.pos);
     for (NonNodeInput &input : nonNodeInputs) {
-        if (auxInfo.extraNodePos.contains(input.inputParam->name)) {
-            ed::SetNodePosition(input.genNodeID, auxInfo.extraNodePos.at(input.inputParam->name));
+        if (auxInfo.extraNodePos.contains(input.inputParam.name)) {
+            ed::SetNodePosition(input.genNodeID, auxInfo.extraNodePos.at(input.inputParam.name));
         }
     }
 }

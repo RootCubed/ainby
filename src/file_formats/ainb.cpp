@@ -9,7 +9,7 @@
 void AINB::Clear() {
     ainbFile = nullptr;
     ainbHeader = {};
-    for (int i = 0; i < ValueTypeCount; i++) {
+    for (u32 i = 0; i < ValueTypeCount; i++) {
         immParams[i].clear();
         inputParams[i].clear();
         outputParams[i].clear();
@@ -44,7 +44,7 @@ void AINB::Read(std::istream &stream) {
     // Immediate params
     ainbFile->seekg(ainbHeader.immParamOffset);
     u32 immStopOffsets[ValueTypeCount];
-    for (int i = 0; i < ValueTypeCount; i++) {
+    for (u32 i = 0; i < ValueTypeCount; i++) {
         if (i == 0) {
             ReadU32();
             continue;
@@ -53,7 +53,7 @@ void AINB::Read(std::istream &stream) {
     }
     immStopOffsets[ValueTypeCount - 1] = ainbHeader.ioParamsOffset;
 
-    for (int i = 0; i < ValueTypeCount; i++) {
+    for (u32 i = 0; i < ValueTypeCount; i++) {
         while (ainbFile->tellg() < immStopOffsets[i]) {
             ImmediateParam p(static_cast<ValueType>(i));
             p.Read(*this);
@@ -73,7 +73,7 @@ void AINB::Read(std::istream &stream) {
     // I/O Parameters
     ainbFile->seekg(ainbHeader.ioParamsOffset);
     u32 ioStopOffsets[ValueTypeCount * 2];
-    for (int i = 0; i < ValueTypeCount * 2; i++) {
+    for (u32 i = 0; i < ValueTypeCount * 2; i++) {
         if (i == 0) {
             ReadU32();
             continue;
@@ -82,7 +82,7 @@ void AINB::Read(std::istream &stream) {
     }
     ioStopOffsets[ValueTypeCount * 2 - 1] = ainbHeader.multiParamArrOffset;
 
-    for (int i = 0; i < ValueTypeCount; i++) {
+    for (u32 i = 0; i < ValueTypeCount; i++) {
         ValueType type = static_cast<ValueType>(i);
         while (ainbFile->tellg() < ioStopOffsets[i * 2]) {
             InputParam p(type);
@@ -101,8 +101,8 @@ void AINB::Read(std::istream &stream) {
     ainbFile->seekg(ainbHeader.preconditionNodeArrOffset);
     u32 preconditionNodesEnd = (ainbHeader.exbOffset == 0) ? ainbHeader.embeddedAinbsOffset : ainbHeader.exbOffset;
     while (ainbFile->tellg() < preconditionNodesEnd) {
-        preconditions.push_back(Read<u16>());
-        assert(Read<u16>() == 0); // Padding
+        preconditions.push_back(ReadU16());
+        assert(ReadU16() == 0); // Padding
     }
 
     // EXB section
@@ -119,7 +119,7 @@ void AINB::Read(std::istream &stream) {
     // Embedded AINBs
     assert(ainbFile->tellg() == ainbHeader.embeddedAinbsOffset);
     u32 embAinbCount = ReadU32();
-    for (int i = 0; i < embAinbCount; i++) {
+    for (u32 i = 0; i < embAinbCount; i++) {
         embeddedAinbs.push_back(ReadString(ReadU32()));
         std::string category = ReadString(ReadU32());
         u32 count = ReadU32();
@@ -132,7 +132,7 @@ void AINB::Read(std::istream &stream) {
 
     // Entry strings
     u32 entryStringCount = ReadU32();
-    for (int i = 0; i < entryStringCount; i++) {
+    for (u32 i = 0; i < entryStringCount; i++) {
         u32 nodeIndex = ReadU32();
         std::string str1 = ReadString(ReadU32());
         std::string str2 = ReadString(ReadU32());
@@ -142,7 +142,7 @@ void AINB::Read(std::istream &stream) {
 
     // Node list
     ainbFile->seekg(commandsOffset + ainbHeader.commandCount * sizeof(Command::FileDataLayout));
-    for (int i = 0; i < ainbHeader.nodeCount; i++) {
+    for (u32 i = 0; i < ainbHeader.nodeCount; i++) {
         Node n;
         n.Read(*this);
         nodes.push_back(n);
@@ -150,10 +150,10 @@ void AINB::Read(std::istream &stream) {
 
     // Fill in connected nodes
     for (Node &n : nodes) {
-        for (Param *p : n.params) {
-            if (p->paramType == ParamType::Input) {
-                InputParam *ip = static_cast<InputParam *>(p);
-                for (int inputIdx : ip->inputNodeIdxs) {
+        for (Param &p : n.GetParams()) {
+            if (p.paramType == ParamType::Input) {
+                InputParam &ip = static_cast<InputParam &>(p);
+                for (int inputIdx : ip.inputNodeIdxs) {
                     n.inNodes.push_back(&nodes[inputIdx]);
                     nodes[inputIdx].outNodes.push_back(&n);
                 }
@@ -169,7 +169,7 @@ void AINB::Read(std::istream &stream) {
 
     // Command list
     ainbFile->seekg(commandsOffset);
-    for (int i = 0; i < ainbHeader.commandCount; i++) {
+    for (u32 i = 0; i < ainbHeader.commandCount; i++) {
         Command c;
         c.Read(*this);
         commands.push_back(c);
@@ -218,13 +218,14 @@ AINB::ainbValue AINB::ReadAinbValue(AINB::ValueType dataType, std::streampos off
                 .y = this->ReadF32(),
                 .z = this->ReadF32()
             };
+        default:
+            return "";
     }
-    return "";
 }
 
 std::string AINB::GUID::ToString() {
     char str[37];
-    sprintf(str, "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x",
+    snprintf(str, 37, "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x",
         d1, d2, d3, d4, d5[0], d5[1], d5[2], d5[3], d5[4], d5[5]);
     return str;
 }
@@ -269,8 +270,8 @@ void AINB::InputParam::Read(AINB &ainb) {
 }
 
 void AINB::InputParam::ReadMultiParam(AINB &ainb, int multiParamBase) {
-    u16 multiParamCount = ainb.Read<u16>();
-    u32 flags = ainb.ReadU32();
+    u16 multiParamCount = ainb.ReadU16();
+    flags = ainb.ReadU32();
     int startOffset = -multiParamBase - 100;
     for (int i = 0; i < multiParamCount; i++) {
         MultiParam &mp = ainb.multiParams[startOffset + i];
@@ -301,29 +302,29 @@ void AINB::Node::Read(AINB &ainb) {
         preconditionNodes.push_back(nodeIdx);
     }
 
-    ReadParams(ainb);
+    ReadBody(ainb);
 }
 
-void AINB::Node::ReadParams(AINB &ainb) {
+void AINB::Node::ReadBody(AINB &ainb) {
     std::streampos savePos = ainb.ainbFile->tellg();
 
     ParamMetaLayout meta;
     ainb.Read(&meta, data.paramOffset);
 
-    for (int i = 0; i < ValueTypeCount; i++) {
-        for (int j = 0; j < meta.immediate[i].count; j++) {
-            params.push_back(&ainb.immParams[i][meta.immediate[i].offset + j]);
+    for (u32 i = 0; i < ValueTypeCount; i++) {
+        for (u32 j = 0; j < meta.immediate[i].count; j++) {
+            immParams.push_back(ainb.immParams[i][meta.immediate[i].offset + j]);
         }
-        for (int j = 0; j < meta.inputOutput[i].inputCount; j++) {
-            params.push_back(&ainb.inputParams[i][meta.inputOutput[i].inputOffset + j]);
+        for (u32 j = 0; j < meta.inputOutput[i].inputCount; j++) {
+            inputParams.push_back(ainb.inputParams[i][meta.inputOutput[i].inputOffset + j]);
         }
-        for (int j = 0; j < meta.inputOutput[i].outputCount; j++) {
-            params.push_back(&ainb.outputParams[i][meta.inputOutput[i].outputOffset + j]);
+        for (u32 j = 0; j < meta.inputOutput[i].outputCount; j++) {
+            outputParams.push_back(ainb.outputParams[i][meta.inputOutput[i].outputOffset + j]);
         }
     }
 
-    for (int i = 0; i < LinkTypeCount; i++) {
-        for (int j = 0; j < meta.link[i].count; j++) {
+    for (u32 i = 0; i < LinkTypeCount; i++) {
+        for (u32 j = 0; j < meta.link[i].count; j++) {
             u32 linkOffset = ainb.ReadU32();
             std::streampos nextLinkOffsetPos = ainb.ainbFile->tellg();
             ainb.ainbFile->seekg(linkOffset);
@@ -335,6 +336,34 @@ void AINB::Node::ReadParams(AINB &ainb) {
     }
 
     ainb.ainbFile->seekg(savePos);
+}
+
+std::vector<std::reference_wrapper<AINB::Param>> AINB::Node::GetParams() {
+    std::vector<std::reference_wrapper<AINB::Param>> params;
+    for (AINB::Param &p : immParams) {
+        params.push_back(p);
+    }
+    for (AINB::Param &p : inputParams) {
+        params.push_back(p);
+    }
+    for (AINB::Param &p : outputParams) {
+        params.push_back(p);
+    }
+    return params;
+}
+
+std::vector<std::reference_wrapper<const AINB::Param>> AINB::Node::GetParams() const {
+    std::vector<std::reference_wrapper<const AINB::Param>> params;
+    for (const AINB::Param &p : immParams) {
+        params.push_back(p);
+    }
+    for (const AINB::Param &p : inputParams) {
+        params.push_back(p);
+    }
+    for (const AINB::Param &p : outputParams) {
+        params.push_back(p);
+    }
+    return params;
 }
 
 std::unordered_map<AINB::NodeType, std::string> nodeTypeNames = {
@@ -375,18 +404,20 @@ std::string AINB::Node::TypeName() const {
 
 void AINB::NodeLink::Read(AINB &ainb, NodeType parentNodeType) {
     idx = ainb.ReadU32();
+    u32 val = ainb.ReadU32();
     switch (type) {
         case LinkType::Type0:
         case LinkType::Flow:
         case LinkType::Type4:
         case LinkType::Type5: {
-            u32 pos = ainb.ReadU32();
-            std::string label = ainb.ReadString(pos);
+            std::string label = ainb.ReadString(val);
             name = label;
             switch (parentNodeType) {
                 case Element_S32Selector:
                     globalParamIdx = ainb.ReadU32();
                     value = ainb.ReadU32();
+                    break;
+                default:
                     break;
             }
             break;
@@ -412,12 +443,12 @@ std::unordered_map<AINB::GlobalParamValueType, AINB::ValueType> globalTypeMap = 
 
 void AINB::Gparams::Read(AINB &ainb) {
     u16 numEntries[ValueTypeCount];
-    for (int i = 0; i < ValueTypeCount; i++) {
-        numEntries[i] = ainb.Read<u16>();
+    for (u32 i = 0; i < ValueTypeCount; i++) {
+        numEntries[i] = ainb.ReadU16();
         ainb.ainbFile->ignore(6); // ignore
     }
-    for (int i = 0; i < ValueTypeCount; i++) {
-        for (int j = 0; j < numEntries[i]; j++) {
+    for (u32 i = 0; i < ValueTypeCount; i++) {
+        for (u16 j = 0; j < numEntries[i]; j++) {
             u32 nameOffsAndFlags = ainb.ReadU32();
             Gparam p {
                 .name = ainb.ReadString(nameOffsAndFlags & 0x3FFFFF),

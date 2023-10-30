@@ -62,7 +62,7 @@ void AINBEditor::DrawInspector() {
     }
 
     if (ImGui::TreeNode("Nodes")) {
-        for (int i = 0; i < ainb->nodes.size(); i++) {
+        for (size_t i = 0; i < ainb->nodes.size(); i++) {
             std::stringstream title;
             title << "Node " << i << ": " << ainb->nodes[i].TypeName();
             ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_None;
@@ -81,37 +81,37 @@ void AINBEditor::DrawInspector() {
                 ImGui::Text("Preconditions: %s", precondString.str().c_str());
 
                 ImGui::Text("Params:");
-                for (AINB::Param *param : ainb->nodes[i].params) {
-                    switch (param->paramType) {
+                for (AINB::Param &param : ainb->nodes[i].GetParams()) {
+                    switch (param.paramType) {
                         case AINB::ParamType::Immediate: {
-                            AINB::ImmediateParam *ip = static_cast<AINB::ImmediateParam *>(param);
+                            AINB::ImmediateParam &ip = static_cast<AINB::ImmediateParam &>(param);
                             ImGui::Text(" Imm %s = %s",
-                                param->name.c_str(), AINB::AINBValueToString(ip->value).c_str());
+                                param.name.c_str(), AINB::AINBValueToString(ip.value).c_str());
                             break;
                         }
                         case AINB::ParamType::Input: {
-                            AINB::InputParam *ip = static_cast<AINB::InputParam *>(param);
+                            AINB::InputParam &ip = static_cast<AINB::InputParam &>(param);
 
-                            switch (ip->inputNodeIdxs.size()) {
+                            switch (ip.inputNodeIdxs.size()) {
                                 case 0:
-                                    ImGui::Text(" Input %s = %s", param->name.c_str(), AINB::AINBValueToString(ip->defaultValue).c_str());
+                                    ImGui::Text(" Input %s = %s", param.name.c_str(), AINB::AINBValueToString(ip.defaultValue).c_str());
                                     break;
                                 case 1:
-                                    ImGui::Text(" Input %s: N%d.%d (default = %s)", param->name.c_str(),
-                                        ip->inputNodeIdxs[0], ip->inputParamIdxs[0],
-                                        AINB::AINBValueToString(ip->defaultValue).c_str());
+                                    ImGui::Text(" Input %s: N%d.%d (default = %s)", param.name.c_str(),
+                                        ip.inputNodeIdxs[0], ip.inputParamIdxs[0],
+                                        AINB::AINBValueToString(ip.defaultValue).c_str());
                                     break;
                                 default:
-                                    ImGui::Text(" Input %s: Multi-param:", param->name.c_str());
-                                    for (int i = 0; i < ip->inputNodeIdxs.size(); i++) {
-                                        ImGui::Text("  N%d.%d", ip->inputNodeIdxs[i], ip->inputParamIdxs[i]);
+                                    ImGui::Text(" Input %s: Multi-param:", param.name.c_str());
+                                    for (size_t i = 0; i < ip.inputNodeIdxs.size(); i++) {
+                                        ImGui::Text("  N%d.%d", ip.inputNodeIdxs[i], ip.inputParamIdxs[i]);
                                     }
                                     break;
                             }
                             break;
                         }
                         case AINB::ParamType::Output:
-                            ImGui::Text(" Output %s", param->name.c_str());
+                            ImGui::Text(" Output %s", param.name.c_str());
                             break;
                     }
                 }
@@ -119,7 +119,7 @@ void AINBEditor::DrawInspector() {
                 ImGui::Text("Links:");
                 for (AINB::NodeLink &link : ainb->nodes[i].nodeLinks) {
                     const char *valueString = AINB::AINBValueToString(link.value).c_str();
-                    ImGui::Text(" Type %d: to node %d with %s (value %s)", link.type, link.idx, link.name.c_str(), valueString);
+                    ImGui::Text(" Type %d: to node %d with %s (value %s)", static_cast<int>(link.type), link.idx, link.name.c_str(), valueString);
                 }
                 ImGui::TreePop();
             }
@@ -183,7 +183,6 @@ void AINBEditor::DrawNodeEditor() {
 
     ed::Suspend();
 
-    ImVec2 openPopupPosition = ImGui::GetMousePos();
     if (ed::ShowNodeContextMenu(&rightClickedNode)) {
         ImGui::OpenPopup("Node Actions");
     }
@@ -193,7 +192,7 @@ void AINBEditor::DrawNodeEditor() {
             for (const AINBImGuiNode &guiNode : guiNodes) {
                 for (const AINBImGuiNode::NonNodeInput &input : guiNode.GetNonNodeInputs()) {
                     if (input.genNodeID == rightClickedNode) {
-                        ImGui::SetClipboardText(AINB::AINBValueToString(input.inputParam->defaultValue).c_str());
+                        ImGui::SetClipboardText(AINB::AINBValueToString(input.inputParam.defaultValue).c_str());
                         goto found;
                     }
                 }
@@ -273,7 +272,7 @@ void AINBEditor::AutoLayout() {
     };
 
     // First, try to place command root nodes
-    for (int i = 0; i < ainb->commands.size(); i++) {
+    for (size_t i = 0; i < ainb->commands.size(); i++) {
         placeNode(ainb->commands[i].rootNode->Idx(), {i, 0});
     }
 
@@ -291,11 +290,11 @@ void AINBEditor::AutoLayout() {
         auxInfo.pos = ImVec2(coord.first * 600, coord.second * 400);
 
         int extraPinIdx = 0;
-        for (const AINB::Param *param : ainb->nodes[nodeIdx].params) {
-            if (param->paramType == AINB::ParamType::Input) {
-                const AINB::InputParam *inputParam = static_cast<const AINB::InputParam *>(param);
-                if (inputParam->inputNodeIdxs.size() == 0) {
-                    auxInfo.extraNodePos[param->name] = ImVec2(auxInfo.pos.x - 250, auxInfo.pos.y + extraPinIdx * 70);
+        for (AINB::Param &param : ainb->nodes[nodeIdx].GetParams()) {
+            if (param.paramType == AINB::ParamType::Input) {
+                const AINB::InputParam &inputParam = static_cast<const AINB::InputParam &>(param);
+                if (inputParam.inputNodeIdxs.size() == 0) {
+                    auxInfo.extraNodePos[param.name] = ImVec2(auxInfo.pos.x - 250, auxInfo.pos.y + extraPinIdx * 70);
                     extraPinIdx++;
                 }
             }
@@ -314,9 +313,7 @@ void AINBEditor::SavePositionToFile(const std::vector<AINBImGuiNode::AuxInfo> &a
         } else {
             for (const AINBImGuiNode::AuxInfo &auxInfo : auxInfos) {
                 file << "n" << auxInfo.nodeIdx << " " << auxInfo.pos.x << " " << auxInfo.pos.y << '\n';
-                for (const std::pair<std::string, ImVec2> &extraNode : auxInfo.extraNodePos) {
-                    auto name = extraNode.first;
-                    auto pos = extraNode.second;
+                for (const auto &[name, pos] : auxInfo.extraNodePos) {
                     file << "e" << name << " " << pos.x << " " << pos.y << '\n';
                 }
             }

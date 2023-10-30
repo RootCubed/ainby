@@ -14,7 +14,7 @@ std::ostream &operator<<(std::ostream &os, const vec3f &vec);
 
 class AINB {
 public:
-    using ainbValue = std::variant<u32, bool, f32, std::string, vec3f>;
+    using ainbValue = std::variant<u32, bool, f32, std::string, vec3f>; // Same order as ValueType enum
     static std::string AINBValueToString(ainbValue v);
 
     struct GUID {
@@ -169,13 +169,14 @@ public:
     class Node {
     private:
         void Read(AINB &ainb);
-        void ReadParams(AINB &ainb);
+        void ReadBody(AINB &ainb);
 
         struct FileDataLayout {
             NodeType type;
             u16 idx;
             u16 attachmentCount;
             u8 flags;
+            u8 __pad_1;
             u32 _name;
             u32 nameHash;
             u32 unk1;
@@ -183,11 +184,12 @@ public:
             u16 exbFunctionCount;
             u16 exbIOFieldSize;
             u16 multiParamCount;
+            u16 __pad_2;
             u32 baseAttachmentParamIdx;
             u16 basePreconditionNode;
             u16 preconditionNodeCount;
             u16 x58Offset;
-            u16 unk2;
+            u16 __pad_3;
             GUID guid;
         };
 
@@ -220,11 +222,16 @@ public:
         const std::vector<const Node *> &GetInNodes() const { return inNodes; }
         const std::vector<const Node *> &GetOutNodes() const { return outNodes; }
 
+        std::vector<ImmediateParam> immParams;
+        std::vector<InputParam> inputParams;
+        std::vector<OutputParam> outputParams;
+        std::vector<std::reference_wrapper<Param>> GetParams();
+        std::vector<std::reference_wrapper<const Param>> GetParams() const;
+
         std::string name; // Empty string if type != UserDefined
         NodeType type;
         u32 flags;
 
-        std::vector<Param *> params;
         std::vector<NodeLink> nodeLinks;
         std::vector<u32> preconditionNodes;
 
@@ -280,13 +287,13 @@ public:
     };
 
 private:
-    // Temporary variables used during reading
+    // Temporary variables used during reading/writing
     std::istream *ainbFile;
+    std::vector<MultiParam> multiParams;
+    std::vector<u16> preconditions;
     std::vector<ImmediateParam> immParams[ValueTypeCount];
     std::vector<InputParam> inputParams[ValueTypeCount];
     std::vector<OutputParam> outputParams[ValueTypeCount];
-    std::vector<MultiParam> multiParams;
-    std::vector<u16> preconditions;
 
     struct AINBFileHeader {
         char magic[4];
@@ -321,19 +328,18 @@ private:
     };
     AINBFileHeader ainbHeader;
 
-    std::string ReadString(u32 offset);
-
     template <typename T>
     T Read(std::streampos offset = -1);
-
-    // Just the two most common ones, use Read<T> for others
-    u32 ReadU32(std::streampos offset = -1) { return Read<u32>(offset); }
-    f32 ReadF32(std::streampos offset = -1) { return Read<f32>(offset); }
 
     template <typename T>
     void Read(T *dataHolder, std::streampos offset = -1);
 
+    std::string ReadString(u32 offset);
     ainbValue ReadAinbValue(ValueType dataType, std::streampos offset = -1);
+    // Just the most common ones, use Read<T> for others
+    u32 ReadU32(std::streampos offset = -1) { return Read<u32>(offset); }
+    u16 ReadU16(std::streampos offset = -1) { return Read<u16>(offset); }
+    f32 ReadF32(std::streampos offset = -1) { return Read<f32>(offset); }
 public:
     void Read(std::istream &stream);
     void Clear();

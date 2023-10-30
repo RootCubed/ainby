@@ -129,7 +129,7 @@ void SARC::Write(std::ostream &sarcFile) const {
         sarcFile.seekp(ALIGN4((u32) sarcFile.tellp()));
         sarcFile.write(path.c_str(), path.length() + 1);
     }
-    for (const auto &[path, file] : files) {
+    for (const auto &[path, _] : files) {
         const SFATFile &file = files.at(path);
         sarcFile.seekp(ALIGN8((u32) sarcFile.tellp()));
         sarcFile.write((const char *) file.data.get(), file.size);
@@ -171,7 +171,7 @@ void SARC::RemoveFile(const std::string &path) {
 
 u32 SARC::PathHash(const std::string &path) {
     u32 hash = 0;
-    for (int i = 0; i < path.length(); i++) {
+    for (size_t i = 0; i < path.length(); i++) {
         hash = hash * 0x65 + path[i];
     }
     return hash;

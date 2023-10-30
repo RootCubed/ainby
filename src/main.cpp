@@ -17,7 +17,7 @@
 static const char* ImGuiGetClipboardText(void *) { return SDL_GetClipboardText(); }
 static void ImGuiSetClipboardText(void *, const char *text) { SDL_SetClipboardText(text); }
 
-int main(int argc, char **argv) {
+int main() {
     // Setup SDL
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "SDL Init Error: %s\n", SDL_GetError());
