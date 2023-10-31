@@ -137,6 +137,7 @@ void AINBEditor::DrawInspector() {
                 ImGui::Text("Type %s", param.TypeString().c_str());
                 ImGui::Text("Default value: %s", AINB::AINBValueToString(param.defaultValue).c_str());
                 ImGui::Text("Notes: %s", param.notes.c_str());
+                ImGui::Text("File reference: %s", param.fileRef.c_str());
 
                 ImGui::TreePop();
             }

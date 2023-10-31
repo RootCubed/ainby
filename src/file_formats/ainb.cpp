@@ -313,13 +313,13 @@ void AINB::Node::ReadBody(AINB &ainb) {
 
     for (u32 i = 0; i < ValueTypeCount; i++) {
         for (u32 j = 0; j < meta.immediate[i].count; j++) {
-            immParams.push_back(ainb.immParams[i][meta.immediate[i].offset + j]);
+            immParams[i].push_back(ainb.immParams[i][meta.immediate[i].offset + j]);
         }
         for (u32 j = 0; j < meta.inputOutput[i].inputCount; j++) {
-            inputParams.push_back(ainb.inputParams[i][meta.inputOutput[i].inputOffset + j]);
+            inputParams[i].push_back(ainb.inputParams[i][meta.inputOutput[i].inputOffset + j]);
         }
         for (u32 j = 0; j < meta.inputOutput[i].outputCount; j++) {
-            outputParams.push_back(ainb.outputParams[i][meta.inputOutput[i].outputOffset + j]);
+            outputParams[i].push_back(ainb.outputParams[i][meta.inputOutput[i].outputOffset + j]);
         }
     }
 
@@ -338,32 +338,46 @@ void AINB::Node::ReadBody(AINB &ainb) {
     ainb.ainbFile->seekg(savePos);
 }
 
+// TODO: find a better way to do this
+
 std::vector<std::reference_wrapper<AINB::Param>> AINB::Node::GetParams() {
-    std::vector<std::reference_wrapper<AINB::Param>> params;
-    for (AINB::Param &p : immParams) {
-        params.push_back(p);
+    if (!isMutableParamsDirty) {
+        return mutableParams;
     }
-    for (AINB::Param &p : inputParams) {
-        params.push_back(p);
+    mutableParams.clear();
+    for (u32 i = 0; i < ValueTypeCount; i++) {
+        for (AINB::Param &p : immParams[i]) {
+            mutableParams.push_back(p);
+        }
+        for (AINB::Param &p : inputParams[i]) {
+            mutableParams.push_back(p);
+        }
+        for (AINB::Param &p : outputParams[i]) {
+            mutableParams.push_back(p);
+        }
     }
-    for (AINB::Param &p : outputParams) {
-        params.push_back(p);
-    }
-    return params;
+    isMutableParamsDirty = false;
+    return mutableParams;
 }
 
 std::vector<std::reference_wrapper<const AINB::Param>> AINB::Node::GetParams() const {
-    std::vector<std::reference_wrapper<const AINB::Param>> params;
-    for (const AINB::Param &p : immParams) {
-        params.push_back(p);
+    if (!isConstParamsDirty) {
+        return constParams;
     }
-    for (const AINB::Param &p : inputParams) {
-        params.push_back(p);
+    constParams.clear();
+    for (u32 i = 0; i < ValueTypeCount; i++) {
+        for (const AINB::Param &p : immParams[i]) {
+            constParams.push_back(p);
+        }
+        for (const AINB::Param &p : inputParams[i]) {
+            constParams.push_back(p);
+        }
+        for (const AINB::Param &p : outputParams[i]) {
+            constParams.push_back(p);
+        }
     }
-    for (const AINB::Param &p : outputParams) {
-        params.push_back(p);
-    }
-    return params;
+    isConstParamsDirty = false;
+    return constParams;
 }
 
 std::unordered_map<AINB::NodeType, std::string> nodeTypeNames = {
@@ -460,13 +474,17 @@ void AINB::Gparams::Read(AINB &ainb) {
         }
     }
     for (Gparam &p : gparams) {
-        p.defaultValue = ainb.ReadAinbValue(globalTypeMap[p.dataType]);
         if (p.dataType == GlobalParamValueType::UserDefined) {
-            std::string className = ainb.ReadString(ainb.ReadU32());
-            u32 nameHash = ainb.ReadU32();
-            ainb.ReadU32(); // unknown
-            ainb.ReadU32(); // unknown
+            continue;
         }
+        p.defaultValue = ainb.ReadAinbValue(globalTypeMap[p.dataType]);
+    }
+    for (Gparam &p : gparams) {
+        p.fileRef = ainb.ReadString(ainb.ReadU32());
+        u32 fileRefHash = ainb.ReadU32();
+        u32 unk1 = ainb.ReadU32();
+        u32 unk2 = ainb.ReadU32();
+        std::cout << "Gparam " << p.name << " has file ref " << p.fileRef << ", " << std::hex << " " << fileRefHash << " " << unk1 << " " << unk2 << std::dec << std::endl;
     }
 }
 

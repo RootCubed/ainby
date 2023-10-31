@@ -28,6 +28,7 @@ public:
     };
     struct ParamLink {
         ed::LinkId linkID;
+        AINB::ValueType inputType;
         int inputNodeIdx;
         int inputParameterIdx;
         ed::PinId inputPinID;
@@ -66,6 +67,8 @@ private:
     std::vector<NonNodeInput> nonNodeInputs;
     std::vector<FlowLink> flowLinks;
     std::vector<ParamLink> paramLinks;
+
+    int outputIdxOffset[AINB::ValueTypeCount];
 
     std::unordered_map<std::string, ed::PinId> nameToPinID;
     std::unordered_map<int, ed::PinId> idxToID;

@@ -216,6 +216,11 @@ public:
         std::vector<const Node *> inNodes;
         std::vector<const Node *> outNodes;
 
+        mutable bool isConstParamsDirty = true;
+        mutable std::vector<std::reference_wrapper<const AINB::Param>> constParams;
+        mutable bool isMutableParamsDirty = true;
+        mutable std::vector<std::reference_wrapper<AINB::Param>> mutableParams;
+
     public:
         std::string TypeName() const;
 
@@ -223,9 +228,9 @@ public:
         const std::vector<const Node *> &GetInNodes() const { return inNodes; }
         const std::vector<const Node *> &GetOutNodes() const { return outNodes; }
 
-        std::vector<ImmediateParam> immParams;
-        std::vector<InputParam> inputParams;
-        std::vector<OutputParam> outputParams;
+        std::vector<ImmediateParam> immParams[ValueTypeCount];
+        std::vector<InputParam> inputParams[ValueTypeCount];
+        std::vector<OutputParam> outputParams[ValueTypeCount];
         std::vector<std::reference_wrapper<Param>> GetParams();
         std::vector<std::reference_wrapper<const Param>> GetParams() const;
 
@@ -264,6 +269,7 @@ public:
             GlobalParamValueType dataType;
             ainbValue defaultValue;
             std::string notes;
+            std::string fileRef;
 
             std::string TypeString() const;
         };

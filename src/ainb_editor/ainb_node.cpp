@@ -43,6 +43,7 @@ void AINBImGuiNode::PreparePinIDs() {
                 for (size_t j = 0; j < inputParam.inputNodeIdxs.size(); j++) {
                     paramLinks.push_back(ParamLink {
                         .linkID = MakeLinkID(),
+                        .inputType = inputParam.dataType,
                         .inputNodeIdx = inputParam.inputNodeIdxs[j],
                         .inputParameterIdx = inputParam.inputParamIdxs[j],
                         .inputPinID = pinID
@@ -51,6 +52,15 @@ void AINBImGuiNode::PreparePinIDs() {
             }
         }
     }
+
+    // Make index offsets so that the parameter indices work correctly
+    // outputIdxOffset[t] is the index of the first output parameter of type t
+    int offset = 0;
+    for (int i = 0; i < AINB::ValueTypeCount; i++) {
+        outputIdxOffset[i] = offset;
+        offset += node.outputParams[i].size();
+    }
+
 
     // Extra pins / Flow links
     for (const AINB::NodeLink &nl : node.nodeLinks) {
@@ -112,7 +122,7 @@ void AINBImGuiNode::CalculateFrameWidth() {
             }
         }
         if (i < outputPins.size()) {
-            AINB::Param &param = node.outputParams[i];
+            AINB::Param &param = node.GetParams()[outputPins[i]];
             size += ImGui::CalcTextSize(param.name.c_str()).x;
             size += itemSpacingX * 2 + iconSize.x;
         }
@@ -280,7 +290,7 @@ void AINBImGuiNode::Draw() {
             }
             ImGui::SameLine();
             if (i < outputPins.size()) {
-                DrawOutputPin(node.outputParams[i], idxToID[outputPins[i]]);
+                DrawOutputPin(node.GetParams()[outputPins[i]], idxToID[outputPins[i]]);
             } else {
                 ImGui::Dummy(ImVec2(0, 0));
             }
@@ -356,7 +366,7 @@ void AINBImGuiNode::DrawLinks(std::vector<AINBImGuiNode> &nodes) {
         }
 
         const AINBImGuiNode &inputNode = nodes[paramLink.inputNodeIdx];
-        ed::PinId outPin = inputNode.idxToID.at(inputNode.outputPins[paramLink.inputParameterIdx]);
+        ed::PinId outPin = inputNode.idxToID.at(inputNode.outputPins[inputNode.outputIdxOffset[static_cast<int>(paramLink.inputType)] + paramLink.inputParameterIdx]);
         ed::Link(paramLink.linkID, outPin, paramLink.inputPinID, ImColor(140, 140, 40));
     }
 }
