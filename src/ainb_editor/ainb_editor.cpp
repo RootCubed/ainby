@@ -202,7 +202,7 @@ void AINBEditor::DrawNodeEditor() {
         ImGui::EndPopup();
     }
 
-    if (selectedNodeIdx > -1) {
+    if (selectedNodeIdx != -1) {
         for (AINBImGuiNode &guiNode : guiNodes) {
             if (guiNode.GetNode().Idx() == selectedNodeIdx) {
                 ed::SelectNode(guiNode.GetNodeID());
