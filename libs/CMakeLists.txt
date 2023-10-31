@@ -1,5 +1,6 @@
 # SDL3
 set(SDL3_DIR "SDL")
+set(SDL_STATIC ON)
 add_subdirectory(${SDL3_DIR})
 
 # OpenGL
@@ -30,7 +31,7 @@ target_include_directories(IMGUI
 
 add_definitions(-DIMGUI_USER_CONFIG="${PROJECT_SOURCE_DIR}/src/ainby_imgui_config.h")
 
-target_link_libraries(IMGUI PRIVATE SDL3::SDL3)
+target_link_libraries(IMGUI PRIVATE SDL3::SDL3-static)
 
 # tinyfiledialogs
 set(TINYFILEDIALOGS_DIR "tinyfd")
