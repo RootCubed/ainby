@@ -41,8 +41,14 @@ void AINB::Read(std::istream &stream) {
     ainbFile->seekg(ainbHeader.globalParamOffset);
     gparams.Read(*this);
 
+    // Attachment params
+    ainbFile->seekg(ainbHeader.attachmentParamsOffset);
+    for (u32 i = 0; i < ainbHeader.attachmentParamCount; i++) {
+        // TODO
+    }
+
     // Immediate params
-    ainbFile->seekg(ainbHeader.immParamOffset);
+    assert(ainbFile->tellg() == ainbHeader.immParamOffset);
     u32 immStopOffsets[ValueTypeCount];
     for (u32 i = 0; i < ValueTypeCount; i++) {
         if (i == 0) {
@@ -120,17 +126,13 @@ void AINB::Read(std::istream &stream) {
     assert(ainbFile->tellg() == ainbHeader.embeddedAinbsOffset);
     u32 embAinbCount = ReadU32();
     for (u32 i = 0; i < embAinbCount; i++) {
-        embeddedAinbs.push_back(ReadString(ReadU32()));
-        std::string category = ReadString(ReadU32());
-        u32 count = ReadU32();
-        if (count > 1) {
-            std::cout << "Embedded AINB " << embeddedAinbs.back() << " has count value of " << count << std::endl;
-        }
+        EmbeddedAINB e;
+        e.Read(*this);
+        embeddedAinbs.push_back(e);
     }
 
-    assert(ainbFile->tellg() == ainbHeader.entryStringsOffset);
-
     // Entry strings
+    assert(ainbFile->tellg() == ainbHeader.entryStringsOffset);
     u32 entryStringCount = ReadU32();
     for (u32 i = 0; i < entryStringCount; i++) {
         u32 nodeIndex = ReadU32();
@@ -138,7 +140,14 @@ void AINB::Read(std::istream &stream) {
         std::string str2 = ReadString(ReadU32());
     }
 
+    // 0x70 section
     assert(ainbFile->tellg() == ainbHeader.x70SectionOffset);
+    x70Hash1 = ReadU32();
+    x70Hash2 = ReadU32();
+
+    // Child Replacement Table
+    assert(ainbFile->tellg() == ainbHeader.childReplacementTableOffset);
+    childReplacementTable.Read(*this);
 
     // Node list
     ainbFile->seekg(commandsOffset + ainbHeader.commandCount * sizeof(Command::FileDataLayout));
@@ -281,7 +290,9 @@ void AINB::InputParam::ReadMultiParam(AINB &ainb, int multiParamBase) {
 }
 
 void AINB::OutputParam::Read(AINB &ainb) {
-    name = ainb.ReadString(ainb.ReadU32() & 0x7FFFFFFF);
+    u32 nameAndFlags = ainb.ReadU32();
+    name = ainb.ReadString(nameAndFlags & 0x7FFFFFFF);
+    setPointerFlagBitZero = nameAndFlags >> 31;
     if (dataType == ValueType::UserDefined) {
         className = ainb.ReadString(ainb.ReadU32());
     }
@@ -469,6 +480,7 @@ void AINB::Gparams::Read(AINB &ainb) {
                 .dataType = static_cast<GlobalParamValueType>(i),
                 .defaultValue = ainbValue(),
                 .notes = ainb.ReadString(ainb.ReadU32()),
+                .hasFileRef = ((nameOffsAndFlags >> 23) & 1) == 0
             };
             gparams.push_back(p);
         }
@@ -480,11 +492,13 @@ void AINB::Gparams::Read(AINB &ainb) {
         p.defaultValue = ainb.ReadAinbValue(globalTypeMap[p.dataType]);
     }
     for (Gparam &p : gparams) {
+        if (!p.hasFileRef) {
+            continue;
+        }
         p.fileRef = ainb.ReadString(ainb.ReadU32());
         u32 fileRefHash = ainb.ReadU32();
-        u32 unk1 = ainb.ReadU32();
-        u32 unk2 = ainb.ReadU32();
-        std::cout << "Gparam " << p.name << " has file ref " << p.fileRef << ", " << std::hex << " " << fileRefHash << " " << unk1 << " " << unk2 << std::dec << std::endl;
+        p.unkHash1 = ainb.ReadU32();
+        p.unkHash2 = ainb.ReadU32();
     }
 }
 
@@ -508,6 +522,21 @@ std::string AINB::Gparams::Gparam::TypeString() const {
 
 void AINB::MultiParam::Read(AINB &ainb) {
     ainb.Read(&multiParam);
+}
+
+void AINB::EmbeddedAINB::Read(AINB &ainb) {
+    name = ainb.ReadString(ainb.ReadU32());
+    fileCategory = ainb.ReadString(ainb.ReadU32());
+    count = ainb.ReadU32();
+}
+
+void AINB::ChildReplacementTable::Read(AINB &ainb) {
+    ainb.Read(&header);
+    for (u32 i = 0; i < header.replacementCount; i++) {
+        FileDataLayout fdl;
+        ainb.Read(&fdl);
+        entries.push_back(fdl);
+    }
 }
 
 std::ostream &operator<<(std::ostream &os, const vec3f &vec) {

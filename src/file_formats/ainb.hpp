@@ -150,6 +150,8 @@ public:
     public:
         OutputParam(ValueType type) : Param(ParamType::Output, type) {}
 
+        bool setPointerFlagBitZero;
+
         friend class AINB;
     };
 
@@ -160,6 +162,7 @@ public:
 
         LinkType type;
         u32 idx;
+        u32 linkValue;
         std::string name;
         u32 globalParamIdx;
         ainbValue value;
@@ -269,7 +272,9 @@ public:
             GlobalParamValueType dataType;
             ainbValue defaultValue;
             std::string notes;
+            bool hasFileRef;
             std::string fileRef;
+            u32 unkHash1, unkHash2;
 
             std::string TypeString() const;
         };
@@ -289,6 +294,37 @@ public:
             u32 flags;
         };
         FileDataLayout multiParam;
+
+        friend class AINB;
+    };
+
+    class EmbeddedAINB {
+        void Read(AINB &ainb);
+    public:
+        std::string name;
+        std::string fileCategory;
+        u32 count;
+
+        friend class AINB;
+    };
+
+    class ChildReplacementTable {
+        void Read(AINB &ainb);
+    public:
+        struct HeaderDataLayout {
+            u16 empty;
+            u16 replacementCount;
+            s16 overrideNodeCount;
+            s16 overrideAttachmentParameterCount;
+        };
+        struct FileDataLayout {
+            u8 type;
+            u8 __pad_1;
+            u16 nodeIndex;
+            u16 v1, v2;
+        };
+        HeaderDataLayout header;
+        std::vector<FileDataLayout> entries;
 
         friend class AINB;
     };
@@ -323,14 +359,14 @@ private:
         u32 exbOffset;
         u32 childReplacementTableOffset;
         u32 preconditionNodeArrOffset;
-        u32 unk;
+        u32 x50SectionOffset;
         u32 unk2;
         u32 unk3;
         u32 embeddedAinbsOffset;
         u32 _fileCategory;
         u32 fileCategoryNum;
         u32 entryStringsOffset;
-        u32 unk4;
+        u32 x6cSectionOffset;
         u32 x70SectionOffset;
     };
     AINBFileHeader ainbHeader;
@@ -357,5 +393,8 @@ public:
     std::vector<Command> commands;
     std::vector<Node> nodes;
     Gparams gparams;
-    std::vector<std::string> embeddedAinbs;
+    std::vector<EmbeddedAINB> embeddedAinbs;
+    std::vector<std::string> entryStrings;
+    u32 x70Hash1, x70Hash2;
+    ChildReplacementTable childReplacementTable;
 };

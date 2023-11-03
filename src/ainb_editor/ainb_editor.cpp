@@ -119,7 +119,7 @@ void AINBEditor::DrawInspector() {
                 ImGui::Text("Links:");
                 for (AINB::NodeLink &link : ainb->nodes[i].nodeLinks) {
                     const char *valueString = AINB::AINBValueToString(link.value).c_str();
-                    ImGui::Text(" Type %d: to node %d with %s (value %s)", static_cast<int>(link.type), link.idx, link.name.c_str(), valueString);
+                    ImGui::Text(" Type %d: to node %d with %s", static_cast<int>(link.type), link.idx, link.name.c_str());
                 }
                 ImGui::TreePop();
             }
@@ -137,7 +137,9 @@ void AINBEditor::DrawInspector() {
                 ImGui::Text("Type %s", param.TypeString().c_str());
                 ImGui::Text("Default value: %s", AINB::AINBValueToString(param.defaultValue).c_str());
                 ImGui::Text("Notes: %s", param.notes.c_str());
-                ImGui::Text("File reference: %s", param.fileRef.c_str());
+                if (param.hasFileRef) {
+                    ImGui::Text("File reference: %s", param.fileRef.c_str());
+                }
 
                 ImGui::TreePop();
             }
@@ -146,8 +148,8 @@ void AINBEditor::DrawInspector() {
     }
 
     if (ImGui::TreeNode("Embedded AINBs")) {
-        for (std::string &ainbName : ainb->embeddedAinbs) {
-            ImGui::Text(" %s", ainbName.c_str());
+        for (const AINB::EmbeddedAINB &e : ainb->embeddedAinbs) {
+            ImGui::Text(" %s", e.name.c_str());
         }
         ImGui::TreePop();
     }
