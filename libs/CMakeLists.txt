@@ -44,3 +44,7 @@ add_library(TINYFILEDIALOGS STATIC
 target_include_directories(TINYFILEDIALOGS
     PUBLIC ${TINYFILEDIALOGS_DIR}
 )
+
+# zstd
+set(ZSTD_DIR "zstd")
+add_subdirectory(${ZSTD_DIR}/build/cmake)

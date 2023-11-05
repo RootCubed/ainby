@@ -8,3 +8,6 @@
 [submodule "libs/tinyfd"]
 	path = libs/tinyfd
 	url = http://git.code.sf.net/p/tinyfiledialogs/code
+[submodule "libs/zstd"]
+	path = libs/zstd
+	url = https://github.com/facebook/zstd.git

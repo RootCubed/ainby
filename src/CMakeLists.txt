@@ -8,10 +8,12 @@ target_sources(ainby PUBLIC
     ${ainby_SRC}
 )
 
+# Needed because zstd does not do this on its own
+set(ZSTD_DIR ${CMAKE_HOME_DIRECTORY}/libs/zstd/lib)
+
 target_include_directories(ainby
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-    PUBLIC ${SDL3_DIR}/include
-    PUBLIC ${TINYFILEDIALOGS_DIR}
+    PUBLIC ${ZSTD_DIR}
 )
 
 add_definitions(-DIMGUI_USER_CONFIG="ainby_imgui_config.h")
@@ -21,5 +23,5 @@ if(WIN32)
 endif()
 
 target_link_libraries(ainby
-    IMGUI TINYFILEDIALOGS
+    IMGUI TINYFILEDIALOGS libzstd_static
 )
