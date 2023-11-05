@@ -8,6 +8,8 @@
 #include <imgui_internal.h> // Internal header needed for DockSpaceXXX functions
 #include <tinyfiledialogs.h>
 
+#include "file_formats/zstd.hpp"
+
 void AINBY::Draw() {
     // Main Window -- Menu bar + Error popup
     ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -51,10 +53,15 @@ void AINBY::Draw() {
 }
 
 void AINBY::DrawMainWindow() {
-    int openFileType = -1; // 0 = pack, 1 = ainb (TODO: should probably make an enum for this)
+    // TODO: Make this a simple "Open" item instead and detect the file type automatically
+    int openFileType = -1;
     bool savePack = false;
+    bool saveSZ = false;
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Open .zs")) {
+                openFileType = 2;
+            }
             if (ImGui::MenuItem("Open .pack")) {
                 openFileType = 0;
             }
@@ -63,6 +70,9 @@ void AINBY::DrawMainWindow() {
             }
             if (ImGui::MenuItem("Save .pack")) {
                 savePack = true;
+            }
+            if (ImGui::MenuItem("Save .zs")) {
+                saveSZ = true;
             }
             if (ImGui::MenuItem("Exit")) {
                 shouldClose = true;
@@ -80,10 +90,20 @@ void AINBY::DrawMainWindow() {
                 if (openFileType == 0) {
                     currentSarc.Read(file);
                     sarcLoaded = true;
-                } else {
+                } else if (openFileType == 1) {
                     currentAinb.Read(file);
                     editor.RegisterAINB(currentAinb);
                     ainbLoaded = true;
+                } else {
+                    ZSTD zstdFile;
+                    zstdFile.Read(file);
+
+                    size_t decompressedSize;
+                    const u8 *decompressed = zstdFile.GetData(decompressedSize);
+
+                    std::istrstream stream((const char *) decompressed, decompressedSize);
+                    currentSarc.Read(stream);
+                    sarcLoaded = true;
                 }
             } catch (std::exception &e) {
                 fileOpenErrorMessage = e.what();
@@ -98,6 +118,24 @@ void AINBY::DrawMainWindow() {
             try {
                 std::ofstream file(path, std::ios::binary);
                 currentSarc.Write(file);
+            } catch (std::exception &e) {
+                fileOpenErrorMessage = e.what();
+                shouldOpenErrorPopup = true;
+            }
+        }
+    }
+
+    if (saveSZ) {
+        const char *path = tinyfd_saveFileDialog("Save file", "", 0, nullptr, nullptr);
+        if (path != nullptr) {
+            try {
+                std::ostrstream stream;
+                currentSarc.Write(stream);
+
+                std::ofstream file(path, std::ios::binary);
+                ZSTD::Write(file, (const u8 *) stream.str(), stream.pcount());
+
+                stream.freeze(false);
             } catch (std::exception &e) {
                 fileOpenErrorMessage = e.what();
                 shouldOpenErrorPopup = true;
