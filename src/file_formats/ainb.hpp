@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <map>
 #include <ostream>
 #include <variant>
 #include <vector>
@@ -105,6 +106,8 @@ public:
 
     class Param {
         virtual void Read(AINB &ainb) = 0;
+        virtual void Write(AINB &ainb) const = 0;
+        virtual u32 BinarySize() const = 0;
     protected:
         Param(ParamType paramType, ValueType dataType) :
             paramType(paramType), dataType(dataType) {}
@@ -122,6 +125,8 @@ public:
 
     class ImmediateParam : public Param {
         void Read(AINB &ainb);
+        void Write(AINB &ainb) const;
+        u32 BinarySize() const;
     public:
         ImmediateParam(ValueType type) : Param(ParamType::Immediate, type) {}
         ainbValue value;
@@ -133,6 +138,8 @@ public:
     private:
         void Read(AINB &ainb);
         void ReadMultiParam(AINB &ainb, int multiParamBase);
+        void Write(AINB &ainb) const;
+        u32 BinarySize() const;
     public:
         InputParam(ValueType type) : Param(ParamType::Input, type) {}
 
@@ -147,6 +154,8 @@ public:
 
     class OutputParam : public Param {
         void Read(AINB &ainb);
+        void Write(AINB &ainb) const;
+        u32 BinarySize() const;
     public:
         OutputParam(ValueType type) : Param(ParamType::Output, type) {}
 
@@ -157,11 +166,13 @@ public:
 
     class NodeLink {
         void Read(AINB &ainb, NodeType parentNodeType);
+        u32 BinarySize() const;
+        void Write(AINB &ainb) const;
     public:
         NodeLink(LinkType type) : type(type) {}
 
         LinkType type;
-        u32 idx;
+        u32 idx; // TODO: Needs to be recalculated at write time
         u32 linkValue;
         std::string name;
         u32 globalParamIdx;
@@ -174,6 +185,9 @@ public:
     private:
         void Read(AINB &ainb);
         void ReadBody(AINB &ainb);
+        u32 BodyBinarySize() const;
+        void WriteHeader(AINB &ainb) const;
+        void WriteBody(AINB &ainb) const;
 
         struct FileDataLayout {
             NodeType type;
@@ -266,6 +280,8 @@ public:
 
     class Gparams {
         void Read(AINB &ainb);
+        u32 BinarySize() const;
+        void Write(AINB &ainb) const;
     public:
         struct Gparam {
             std::string name;
@@ -277,6 +293,7 @@ public:
             u32 unkHash1, unkHash2;
 
             std::string TypeString() const;
+            int TypeSize() const;
         };
         void Clear() { gparams.clear(); }
 
@@ -300,6 +317,7 @@ public:
 
     class EmbeddedAINB {
         void Read(AINB &ainb);
+        void Write(AINB &ainb) const;
     public:
         std::string name;
         std::string fileCategory;
@@ -310,6 +328,7 @@ public:
 
     class ChildReplacementTable {
         void Read(AINB &ainb);
+        void Write(AINB &ainb) const;
     public:
         struct HeaderDataLayout {
             u16 empty;
@@ -334,9 +353,19 @@ private:
     std::istream *ainbFile;
     std::vector<MultiParam> multiParams;
     std::vector<u16> preconditions;
+
+    std::ostream *outFile;
+    u32 currNodeParamsOffset;
+    std::map<std::string, u32> stringPoolMap;
+    std::vector<u8> stringPool;
+
     std::vector<ImmediateParam> immParams[ValueTypeCount];
     std::vector<InputParam> inputParams[ValueTypeCount];
     std::vector<OutputParam> outputParams[ValueTypeCount];
+
+    u32 currImmParamsOffsets[ValueTypeCount];
+    u32 currInputParamsOffsets[ValueTypeCount];
+    u32 currOutputParamsOffsets[ValueTypeCount];
 
     struct AINBFileHeader {
         char magic[4];
@@ -379,12 +408,24 @@ private:
 
     std::string ReadString(u32 offset);
     ainbValue ReadAinbValue(ValueType dataType, std::streampos offset = -1);
+
+    template <typename T>
+    void WriteData(const T data, std::streampos offset = -1);
+
+    u32 MakeString(const std::string &str);
+    static u32 HashString(const std::string &str);
+    void WriteAinbValue(const ainbValue &value, std::streampos offset = -1);
+
     // Just the most common ones, use Read<T> for others
     u32 ReadU32(std::streampos offset = -1) { return Read<u32>(offset); }
     u16 ReadU16(std::streampos offset = -1) { return Read<u16>(offset); }
     f32 ReadF32(std::streampos offset = -1) { return Read<f32>(offset); }
+    void WriteU32(u32 data, std::streampos offset = -1) { WriteData<u32>(data, offset); }
+    void WriteU16(u16 data, std::streampos offset = -1) { WriteData<u16>(data, offset); }
+    void WriteF32(f32 data, std::streampos offset = -1) { WriteData<f32>(data, offset); }
 public:
     void Read(std::istream &stream);
+    void Write(std::ostream &stream);
     void Clear();
 
     std::string name;

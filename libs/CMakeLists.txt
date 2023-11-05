@@ -44,3 +44,14 @@ add_library(TINYFILEDIALOGS STATIC
 target_include_directories(TINYFILEDIALOGS
     PUBLIC ${TINYFILEDIALOGS_DIR}
 )
+
+# smhasher (MurmurHash3)
+set(SMHASHER_DIR "smhasher")
+
+add_library(SMHASHER STATIC
+    ${SMHASHER_DIR}/src/MurmurHash3.cpp
+)
+
+target_include_directories(SMHASHER
+    PUBLIC ${SMHASHER_DIR}/src
+)

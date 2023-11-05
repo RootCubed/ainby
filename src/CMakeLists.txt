@@ -21,5 +21,5 @@ if(WIN32)
 endif()
 
 target_link_libraries(ainby
-    IMGUI TINYFILEDIALOGS
+    IMGUI TINYFILEDIALOGS SMHASHER
 )

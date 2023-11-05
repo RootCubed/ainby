@@ -1,6 +1,7 @@
 #include "ainby.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <fstream>
 #include <sstream>
 #include <strstream>
@@ -52,7 +53,7 @@ void AINBY::Draw() {
 
 void AINBY::DrawMainWindow() {
     int openFileType = -1; // 0 = pack, 1 = ainb (TODO: should probably make an enum for this)
-    bool savePack = false;
+    int saveFileType = -1; // (same as above)
     if (ImGui::BeginMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open .pack")) {
@@ -62,7 +63,10 @@ void AINBY::DrawMainWindow() {
                 openFileType = 1;
             }
             if (ImGui::MenuItem("Save .pack")) {
-                savePack = true;
+                saveFileType = 0;
+            }
+            if (ImGui::MenuItem("Save .ainb")) {
+                saveFileType = 1;
             }
             if (ImGui::MenuItem("Exit")) {
                 shouldClose = true;
@@ -92,12 +96,16 @@ void AINBY::DrawMainWindow() {
         }
     }
 
-    if (savePack) {
+    if (saveFileType != -1) {
         const char *path = tinyfd_saveFileDialog("Save file", "", 0, nullptr, nullptr);
         if (path != nullptr) {
             try {
                 std::ofstream file(path, std::ios::binary);
-                currentSarc.Write(file);
+                if (saveFileType == 0) {
+                    currentSarc.Write(file);
+                } else {
+                    currentAinb.Write(file);
+                }
             } catch (std::exception &e) {
                 fileOpenErrorMessage = e.what();
                 shouldOpenErrorPopup = true;

@@ -8,3 +8,6 @@
 [submodule "libs/tinyfd"]
 	path = libs/tinyfd
 	url = http://git.code.sf.net/p/tinyfiledialogs/code
+[submodule "libs/smhasher"]
+	path = libs/smhasher
+	url = https://github.com/aappleby/smhasher.git
