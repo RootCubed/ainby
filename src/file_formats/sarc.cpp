@@ -126,17 +126,25 @@ void SARC::Write(std::ostream &sarcFile) const {
     sarcFile.write((char *) sfatNodes.data(), sfatNodes.size() * sizeof(SFATNode));
     sarcFile.write((char *) &sfntHeader, sizeof(SFNTHeader));
     for (const auto &[path, _] : files) {
-        sarcFile.seekp(ALIGN4((u32) sarcFile.tellp()));
+        WriteAlign(sarcFile, 4);
         sarcFile.write(path.c_str(), path.length() + 1);
     }
     for (const auto &[path, _] : files) {
         const SFATFile &file = files.at(path);
-        sarcFile.seekp(ALIGN8((u32) sarcFile.tellp()));
+        WriteAlign(sarcFile, 8);
         sarcFile.write((const char *) file.data.get(), file.size);
     }
-    sarcFile.seekp(ALIGN4((u32) sarcFile.tellp()));
+    WriteAlign(sarcFile, 4);
 
     assert(sarcFile.tellp() == dataBegin + dataPos);
+}
+
+void SARC::WriteAlign(std::ostream &sarcFile, u32 alignment) {
+    size_t pos = sarcFile.tellp();
+    while (pos % alignment != 0) {
+        sarcFile.put(0);
+        pos++;
+    }
 }
 
 const u8 *SARC::GetFileByPath(const std::string &path, u32 &size) const {

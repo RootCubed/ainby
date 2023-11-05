@@ -22,6 +22,8 @@ public:
     void RemoveFile(const std::string &path);
 
 private:
+    static void WriteAlign(std::ostream &sarcFile, u32 alignment);
+
     struct SARCHeader {
         char magic[4];
         u16 headerLen;
